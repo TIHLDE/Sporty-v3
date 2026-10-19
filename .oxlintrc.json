@@ -1,0 +1,25 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"plugins": ["typescript", "unicorn", "oxc", "react", "jsx-a11y"],
+	"categories": {
+		"correctness": "error"
+	},
+	"rules": {
+		"react/exhaustive-deps": "warn",
+		"react/react-in-jsx-scope": "off",
+		"react/self-closing-comp": "error",
+		"jsx-a11y/prefer-tag-over-role": "off",
+		"no-param-reassign": "error",
+		"default-param-last": "error",
+		"no-else-return": "error",
+		"one-var": ["error", "never"],
+		"typescript/prefer-as-const": "error",
+		"typescript/prefer-enum-initializers": "error",
+		"typescript/no-inferrable-types": "error",
+		"unicorn/prefer-number-properties": "error"
+	},
+	"env": {
+		"builtin": true
+	},
+	"ignorePatterns": ["**/routeTree.gen.ts", "**/dist", "**/.turbo"]
+}

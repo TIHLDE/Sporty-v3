@@ -1,0 +1,23 @@
+{
+	"name": "@sporty/api",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./*": "./src/*.ts"
+	},
+	"scripts": {
+		"check-types": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@sporty/auth": "workspace:*",
+		"@sporty/db": "workspace:*",
+		"@trpc/client": "catalog:",
+		"@trpc/server": "catalog:",
+		"jose": "^6.2.12",
+		"zod": "catalog:"
+	},
+	"devDependencies": {
+		"@sporty/config": "workspace:*",
+		"typescript": "catalog:"
+	}
+}
