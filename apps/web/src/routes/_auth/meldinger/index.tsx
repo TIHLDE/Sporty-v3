@@ -36,7 +36,7 @@ function ConversationsComponent() {
   const [composing, setComposing] = useState(false);
 
   return (
-    <div className="grid grid-cols-1 gap-6">
+    <div className="grid grid-cols-1 gap-6 w-4xl">
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold">Meldinger</h1>
         <Button onClick={() => setComposing(true)}>
