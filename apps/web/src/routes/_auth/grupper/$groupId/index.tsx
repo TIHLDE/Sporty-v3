@@ -28,6 +28,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { Markdown } from "@/components/markdown";
+
 import { AnnouncementsTab } from "@/components/announcements";
 import { EventCard } from "@/components/event-card";
 import { GroupAvatar } from "@/components/group-avatar";
@@ -89,7 +91,9 @@ function GroupView({ group }: { group: GroupDetails }) {
 				<div className="min-w-0 flex-1">
 					<h1 className="text-2xl font-semibold">{group.name}</h1>
 					{group.description && (
-						<p className="text-muted-foreground">{group.description}</p>
+						<Markdown className="text-muted-foreground">
+						{group.description}
+					</Markdown>
 					)}
 				</div>
 				<div className="flex flex-wrap gap-2">

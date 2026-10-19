@@ -25,6 +25,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { AnswerButtons } from "@/components/event-card";
+import { Markdown } from "@/components/markdown";
 import { PageState } from "@/components/page-state";
 import { answeringClosed, EVENT_TYPE_LABEL, summarize } from "@/lib/events";
 import { useTRPC } from "@/utils/trpc";
@@ -132,7 +133,7 @@ function EventView({ event }: { event: Event }) {
 
 			{event.type === "kamp" && started && <MatchResult event={event} />}
 			{event.description && (
-				<p className="whitespace-pre-wrap">{event.description}</p>
+				<Markdown>{event.description}</Markdown>
 			)}
 
 			<div className="grid gap-4 sm:grid-cols-3">
