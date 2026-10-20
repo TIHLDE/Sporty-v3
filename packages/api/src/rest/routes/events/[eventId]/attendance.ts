@@ -9,7 +9,11 @@ import {
 import { prisma } from "../../../server/prisma";
 import type { Answer } from "../../../types";
 
-/** Svar "kommer" eller "kommer ikke". Sub-/admin i gruppen får et varsel. */
+/**
+ * Svar "kommer" eller "kommer ikke". Personen selv får en bekreftelse i Varsler, som erstatter
+ * bekreftelsen fra et tidligere svar på samme arrangement. Sub-/admin varsles ikke: svarene står
+ * på arrangementet.
+ */
 export const PUT = handler<{ eventId: string }>(
 	async (request, { eventId }) => {
 		const userId = await getUserId(request);
@@ -33,25 +37,19 @@ export const PUT = handler<{ eventId: string }>(
 			update: { status },
 		});
 
-		const [user, managers] = await Promise.all([
-			prisma.person.findUniqueOrThrow({ where: { id: userId } }),
-			prisma.membership.findMany({
-				where: {
-					groupId: event.groupId,
-					role: { in: ["admin", "subadmin"] },
-					userId: { not: userId },
-				},
-			}),
-		]);
-		await notify(
-			managers.map((m) => m.userId),
-			{
-				groupId: event.groupId,
-				type: "attendance",
-				text: `${user.name} ${status === "kommer" ? "kommer på" : "kommer ikke på"} ${event.title}`,
-				href: `/grupper/${event.groupId}/arrangement/${eventId}`,
-			},
-		);
+		const href = `/grupper/${event.groupId}/arrangement/${eventId}`;
+		await prisma.notification.deleteMany({
+			where: { userId, type: "attendance", href },
+		});
+		await notify([userId], {
+			groupId: event.groupId,
+			type: "attendance",
+			text:
+				status === "kommer"
+					? `Du er påmeldt ${event.title}`
+					: `Du har meldt deg av ${event.title}`,
+			href,
+		});
 
 		const updated = await prisma.event.findUniqueOrThrow({
 			where: { id: eventId },
