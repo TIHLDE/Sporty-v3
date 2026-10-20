@@ -1,4 +1,4 @@
-import { pollInclude, toPoll } from "../../../server/dto";
+import { pollInclude, toPoll, toUser } from "../../../server/dto";
 import {
 	HttpError,
 	getUserId,
@@ -25,7 +25,7 @@ export const GET = handler<{ pollId: string }>(
 			...toPoll(poll, userId, role),
 			comments: poll.comments.map((c) => ({
 				id: c.id,
-				author: { id: c.author.id, name: c.author.name, email: c.author.email },
+				author: toUser(c.author),
 				body: c.body,
 				createdAt: c.createdAt.toISOString(),
 			})),

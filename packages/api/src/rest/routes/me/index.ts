@@ -24,6 +24,7 @@ export const GET = handler(async (request): Promise<Me> => {
 		id: user.id,
 		name: user.name,
 		email: user.email,
+		imageUrl: user.imageUrl,
 		inactiveIn: user.memberships.map((m) => ({
 			groupId: m.groupId,
 			groupName: m.group.name,

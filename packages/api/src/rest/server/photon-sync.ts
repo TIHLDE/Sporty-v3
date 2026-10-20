@@ -118,22 +118,30 @@ async function syncRoster(accessToken: string, slug: string, groupId: string) {
 	// Brukere for medlemmer som ikke har logget inn ennå. De kobles til ved første innlogging,
 	// fordi id-en her er den samme som `sub` fra innloggingen.
 	await prisma.person.createMany({
-		data: members.map((m) => ({ photonId: m.userId, name: m.user.name })),
+		data: members.map((m) => ({
+			photonId: m.userId,
+			name: m.user.name,
+			imageUrl: m.user.image || null,
+		})),
 		skipDuplicates: true,
 	});
 	const users = await prisma.person.findMany({
 		where: { photonId: { in: photonIds } },
-		select: { id: true, name: true, photonId: true },
+		select: { id: true, name: true, imageUrl: true, photonId: true },
 	});
 	const userIdByPhotonId = new Map(users.map((u) => [u.photonId!, u.id]));
 
-	// Navn som er endret på tihlde.org.
+	// Navn og profilbilder som er endret på tihlde.org.
 	for (const member of members) {
 		const user = users.find((u) => u.photonId === member.userId);
-		if (user && user.name !== member.user.name) {
+		const imageUrl = member.user.image || null;
+		if (
+			user &&
+			(user.name !== member.user.name || user.imageUrl !== imageUrl)
+		) {
 			await prisma.person.update({
 				where: { id: user.id },
-				data: { name: member.user.name },
+				data: { name: member.user.name, imageUrl },
 			});
 		}
 	}

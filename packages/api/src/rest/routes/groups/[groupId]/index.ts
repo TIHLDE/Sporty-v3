@@ -1,5 +1,5 @@
 import { GROUP_COLORS } from "../../../lib/group-colors";
-import { toGroup } from "../../../server/dto";
+import { toGroup, toUser } from "../../../server/dto";
 import { getFinesInfo } from "../../../server/fines";
 import {
 	HttpError,
@@ -60,7 +60,7 @@ export const GET = handler<{ groupId: string }>(
 			),
 			members: group.memberships
 				.map((m) => ({
-					user: { id: m.user.id, name: m.user.name, email: m.user.email },
+					user: toUser(m.user),
 					role: m.role,
 					position: group.usesPositions ? m.position : null,
 					// Begrunnelsen er bare for sub-/admin og medlemmet selv.

@@ -52,6 +52,9 @@ model Person {
   email    String? @unique
   /// TIHLDE-kontoen (`sub` fra Photon). Samme id i appen, på nettsiden og i medlemslistene.
   photonId String? @unique
+  /// Profilbildet fra tihlde.org (full lenke), eller null. Holdes oppdatert av synken med
+  /// medlemslistene. Bilder lastet opp på tihlde.org er private og hentes med innloggingen.
+  imageUrl String?
   /// Innloggingen på nettsiden, når personen har logget inn der.
   userId   String? @unique
   user     User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
@@ -451,6 +454,7 @@ model NotificationSettings {
   pushFines           Boolean @default(true)
   pushEventReminders  Boolean @default(true)
   pushSignupReminders Boolean @default(true)
+  pushMessages        Boolean @default(true)
   user                Person  @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 

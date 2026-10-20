@@ -8,6 +8,7 @@
 import type { Prisma } from "@sporty/db";
 
 import type * as Dto from "../types";
+import { toUser } from "./dto";
 import { HttpError, getRole } from "./http";
 import { prisma } from "./prisma";
 
@@ -73,14 +74,6 @@ export function countUnread(conversation: ConversationRow, userId: string) {
 			...(lastReadAt ? { sentAt: { gt: lastReadAt } } : {}),
 		},
 	});
-}
-
-export function toUser(user: {
-	id: string;
-	name: string;
-	email: string | null;
-}): Dto.User {
-	return { id: user.id, name: user.name, email: user.email };
 }
 
 /** Tittel og bilde sett fra brukeren: gruppenavnet, eller navnet til den andre personen. */

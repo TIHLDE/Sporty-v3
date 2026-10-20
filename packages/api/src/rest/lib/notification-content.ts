@@ -30,6 +30,27 @@ export function fineContent(fine: {
 	};
 }
 
+/** Så mye av meldingen som vises i varselet. iOS kutter uansett etter noen linjer. */
+const MESSAGE_PREVIEW_LENGTH = 150;
+
+/** Ny melding: i gruppechatter med gruppenavnet som tittel og avsenderen foran teksten. */
+export function messageContent(message: {
+	conversationId: string;
+	senderName: string;
+	groupName: string | null;
+	body: string;
+}): NotificationContent {
+	const text =
+		message.body.length > MESSAGE_PREVIEW_LENGTH
+			? `${message.body.slice(0, MESSAGE_PREVIEW_LENGTH).trimEnd()}…`
+			: message.body;
+	return {
+		title: message.groupName ?? message.senderName,
+		body: message.groupName ? `${message.senderName}: ${text}` : text,
+		url: `/meldinger/${message.conversationId}`,
+	};
+}
+
 type ReminderEvent = Pick<
 	Event,
 	"id" | "title" | "groupName" | "start" | "location"

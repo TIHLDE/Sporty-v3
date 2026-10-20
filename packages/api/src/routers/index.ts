@@ -488,6 +488,7 @@ const settingsInput = z.object({
 	pushFines: z.boolean().optional(),
 	pushEventReminders: z.boolean().optional(),
 	pushSignupReminders: z.boolean().optional(),
+	pushMessages: z.boolean().optional(),
 });
 
 const settingsRouter = router({

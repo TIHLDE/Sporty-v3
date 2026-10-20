@@ -55,6 +55,7 @@ import * as r32 from "./routes/push-tokens/test";
 import * as r51 from "./routes/unread";
 import * as r39 from "./routes/uploads/[uploadId]";
 import * as r52 from "./routes/uploads/index";
+import * as rUserImage from "./routes/users/[userId]/image";
 import * as r53 from "./routes/users/index";
 
 export const routes = [
@@ -112,5 +113,6 @@ export const routes = [
 	{ pattern: "/push-tokens", module: r50 },
 	{ pattern: "/unread", module: r51 },
 	{ pattern: "/uploads", module: r52 },
+	{ pattern: "/users/:userId/image", module: rUserImage },
 	{ pattern: "/users", module: r53 },
 ] as const;

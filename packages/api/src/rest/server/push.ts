@@ -15,7 +15,7 @@ interface PushTicket {
 }
 
 /** Varseltypene som sendes som push, og innstillingen som styrer hver av dem. */
-const SETTING = { fine: "pushFines" } as const;
+const SETTING = { fine: "pushFines", message: "pushMessages" } as const;
 
 /**
  * Sender et push-varsel til alle enhetene til brukerne som har slått på denne typen varsel.

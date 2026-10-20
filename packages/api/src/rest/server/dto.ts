@@ -52,6 +52,20 @@ export const eventInclude = {
 
 type EventRow = Prisma.EventGetPayload<{ include: typeof eventInclude }>;
 
+export function toUser(user: {
+	id: string;
+	name: string;
+	email: string | null;
+	imageUrl: string | null;
+}): Dto.User {
+	return {
+		id: user.id,
+		name: user.name,
+		email: user.email,
+		imageUrl: user.imageUrl,
+	};
+}
+
 export function toEvent(event: EventRow, userId: string): Dto.Event {
 	const myRole =
 		event.group.memberships.find((m) => m.userId === userId)?.role ?? null;
@@ -199,7 +213,7 @@ export function toFine(
 		source: "sporty",
 		status: fine.paid ? "paid" : "approved",
 		law: fine.law,
-		user: { id: fine.user.id, name: fine.user.name, email: fine.user.email },
+		user: toUser(fine.user),
 		givenByName: fine.givenBy.name,
 		reason: fine.reason,
 		count: fine.count,

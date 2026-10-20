@@ -2,6 +2,7 @@
 // grupper laget i Sporty. Rutene spør her om hvilken kilde som gjelder. Kun serverkode.
 
 import type * as Dto from "../types";
+import { toUser } from "./dto";
 import { HttpError, getRole, isManager } from "./http";
 import {
 	type PhotonFine,
@@ -118,7 +119,13 @@ export async function toFinesFromPhoton(
 	const photonIds = [...new Set(fines.map((f) => f.userId))];
 	const users = await prisma.person.findMany({
 		where: { photonId: { in: photonIds } },
-		select: { id: true, name: true, email: true, photonId: true },
+		select: {
+			id: true,
+			name: true,
+			email: true,
+			imageUrl: true,
+			photonId: true,
+		},
 	});
 	const byPhotonId = new Map(users.map((u) => [u.photonId!, u]));
 
@@ -133,8 +140,13 @@ export async function toFinesFromPhoton(
 				? { paragraph: fine.law.paragraph, title: fine.law.title }
 				: null,
 			user: user
-				? { id: user.id, name: user.name, email: user.email }
-				: { id: `photon:${fine.userId}`, name: fine.user.name, email: null },
+				? toUser(user)
+				: {
+						id: `photon:${fine.userId}`,
+						name: fine.user.name,
+						email: null,
+						imageUrl: null,
+					},
 			givenByName: fine.createdByUser?.name ?? "tihlde.org",
 			reason: fine.reason,
 			count: fine.amount,

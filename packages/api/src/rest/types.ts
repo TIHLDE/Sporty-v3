@@ -17,6 +17,11 @@ export interface User {
 	name: string;
 	/** Null for medlemmer hentet fra en medlemsliste på tihlde.org som ikke har logget inn ennå. */
 	email: string | null;
+	/**
+	 * Profilbildet fra tihlde.org (full lenke), eller null. Bilder lastet opp der er private og må
+	 * hentes med innloggingen (Bearer-tokenet).
+	 */
+	imageUrl: string | null;
 }
 
 /** At et medlem er satt som inaktivt i en gruppe, og hvorfor. */
@@ -42,6 +47,8 @@ export interface NotificationSettings {
 	pushFines: boolean;
 	pushEventReminders: boolean;
 	pushSignupReminders: boolean;
+	/** Nye meldinger i gruppechatter og direktemeldinger. */
+	pushMessages: boolean;
 }
 
 export interface Group {

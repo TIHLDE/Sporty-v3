@@ -193,6 +193,13 @@ function PushSection() {
 								Når jeg får bot
 							</CheckboxField>
 							<CheckboxField
+								checked={data.pushMessages}
+								disabled={!data.pushEnabled}
+								onCheckedChange={(pushMessages) => set({ pushMessages })}
+							>
+								Nye meldinger
+							</CheckboxField>
+							<CheckboxField
 								checked={data.pushEventReminders}
 								disabled={!data.pushEnabled}
 								onCheckedChange={(pushEventReminders) =>

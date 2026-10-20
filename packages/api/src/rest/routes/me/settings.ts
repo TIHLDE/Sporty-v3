@@ -7,6 +7,7 @@ const DEFAULTS: NotificationSettings = {
 	pushFines: true,
 	pushEventReminders: true,
 	pushSignupReminders: true,
+	pushMessages: true,
 };
 const KEYS = Object.keys(DEFAULTS) as (keyof NotificationSettings)[];
 const select = {
@@ -14,6 +15,7 @@ const select = {
 	pushFines: true,
 	pushEventReminders: true,
 	pushSignupReminders: true,
+	pushMessages: true,
 };
 
 /** Den innloggede brukerens varselinnstillinger. */

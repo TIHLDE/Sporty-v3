@@ -14,6 +14,8 @@ export interface PhotonUser {
 	sub: string;
 	name: string;
 	email: string;
+	/** Profilbildet (OIDC-claimet `picture`), om Photon sender det. */
+	picture: string | null;
 }
 
 /**
@@ -118,6 +120,7 @@ export async function getPhotonUser(accessToken: string): Promise<PhotonUser> {
 		sub: data.sub,
 		email: data.email.toLowerCase(),
 		name: data.name || data.preferred_username || data.email,
+		picture: data.picture || null,
 	};
 
 	if (cache.size >= MAX_CACHED) cache.delete(cache.keys().next().value!);
@@ -181,7 +184,11 @@ export interface PhotonMember {
 	/** Samme id som `sub` ved innlogging. */
 	userId: string;
 	role: string;
-	user: { id: string; name: string };
+	/**
+	 * `image` er profilbildet: det som er lastet opp på tihlde.org, ellers det fra Feide. Opplastede
+	 * bilder er private og krever innlogging for å hentes.
+	 */
+	user: { id: string; name: string; image: string | null };
 }
 
 /** Hele medlemslisten til en gruppe. Synlig for medlemmer av gruppen. Har ikke e-post. */
@@ -323,6 +330,14 @@ export async function listPhotonFines(
 		page = result.nextPage;
 	}
 	return fines;
+}
+
+/**
+ * Bilder på tihlde.org sitt eget lager (`…/api/assets/…`). Profilbilder der er private: de hentes
+ * med tokenet, og bare dit skal tokenet sendes. Andre lenker er eksterne bilder.
+ */
+export function isPhotonAsset(url: string) {
+	return url.startsWith(`${PHOTON_API_URL}/assets/`);
 }
 
 /** Én bot, med forsvar og om den har bilde. */

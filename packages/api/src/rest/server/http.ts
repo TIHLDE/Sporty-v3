@@ -175,6 +175,12 @@ async function findOrCreateUser(photonUser: PhotonUser) {
 		where: { photonId: photonUser.sub },
 	});
 	if (linked) {
+		if (!linked.imageUrl && photonUser.picture) {
+			await prisma.person.update({
+				where: { id: linked.id },
+				data: { imageUrl: photonUser.picture },
+			});
+		}
 		if (linked.name !== data.name || linked.email !== data.email) {
 			// E-posten kan allerede tilhøre en annen bruker (f.eks. i seed-dataene). Da beholdes den
 			// gamle, i stedet for at innloggingen feiler.
@@ -190,7 +196,7 @@ async function findOrCreateUser(photonUser: PhotonUser) {
 	}
 	const user = await prisma.person.upsert({
 		where: { email: photonUser.email },
-		create: data,
+		create: { ...data, imageUrl: photonUser.picture },
 		update: { photonId: photonUser.sub, name: photonUser.name },
 	});
 	return user.id;
