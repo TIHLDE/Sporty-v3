@@ -15,6 +15,30 @@ interface NominatimResult {
 	display_name: string;
 	lat: string;
 	lon: string;
+	address?: {
+		road?: string;
+		pedestrian?: string;
+		house_number?: string;
+		postcode?: string;
+		city?: string;
+		town?: string;
+		village?: string;
+		municipality?: string;
+	};
+}
+
+/** «Skansegata 20, 7014 Trondheim». Det som mangler, utelates. */
+function formatAddress(address: NonNullable<NominatimResult["address"]>) {
+	const street = [address.road ?? address.pedestrian, address.house_number]
+		.filter(Boolean)
+		.join(" ");
+	const place = [
+		address.postcode,
+		address.city ?? address.town ?? address.village ?? address.municipality,
+	]
+		.filter(Boolean)
+		.join(" ");
+	return { street, full: [street, place].filter(Boolean).join(", ") };
 }
 
 export const GET = handler(async (request): Promise<Place[]> => {
@@ -29,6 +53,7 @@ export const GET = handler(async (request): Promise<Place[]> => {
 		limit: "8",
 		countrycodes: "no",
 		viewbox: TRONDHEIM_VIEWBOX,
+		addressdetails: "1",
 		"accept-language": "nb",
 	}).toString();
 
@@ -39,13 +64,12 @@ export const GET = handler(async (request): Promise<Place[]> => {
 
 	const results = (await response.json()) as NominatimResult[];
 	return results.map((r) => {
-		const [first, ...rest] = r.display_name.split(", ");
+		const { street, full } = formatAddress(r.address ?? {});
 		return {
 			id: null,
-			name: r.name || first || r.display_name,
-			address: (r.name ? r.display_name.split(", ").slice(1) : rest)
-				.slice(0, 3)
-				.join(", "),
+			// Rene adresser har ikke navn: da er gateadressen navnet, ikke bare husnummeret.
+			name: r.name || street || r.display_name.split(", ")[0] || r.display_name,
+			address: full,
 			latitude: Number(r.lat),
 			longitude: Number(r.lon),
 		};

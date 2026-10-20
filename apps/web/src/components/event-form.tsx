@@ -21,7 +21,7 @@ import { type ReactNode, useEffect, useState } from "react";
 
 import { CheckboxField } from "@/components/checkbox-field";
 import { toLocalInput } from "@/lib/datetime";
-import { EVENT_TYPE_LABEL } from "@/lib/events";
+import { EVENT_TYPE_LABEL, placeDetail } from "@/lib/events";
 import { useTRPC } from "@/utils/trpc";
 
 const TYPES = Object.keys(EVENT_TYPE_LABEL) as EventType[];
@@ -72,7 +72,7 @@ export function EventForm({
 			: "",
 	);
 	const [place, setPlace] = useState<Place | null>(
-		editing ? { ...editing.location, id: null, address: "" } : null,
+		editing ? { ...editing.location, id: null } : null,
 	);
 	const [description, setDescription] = useState(editing?.description ?? "");
 
@@ -106,6 +106,7 @@ export function EventForm({
 			signupDeadline: deadline ? toIso(deadline) : null,
 			location: {
 				name: place.name,
+				address: place.address,
 				latitude: place.latitude,
 				longitude: place.longitude,
 			},
@@ -309,9 +310,9 @@ function PlacePicker({
 				<MapPinIcon className="size-4 text-muted-foreground" />
 				<div className="min-w-0 flex-1">
 					<p className="font-medium">{value.name}</p>
-					{value.address && (
+					{placeDetail(value) && (
 						<p className="truncate text-sm text-muted-foreground">
-							{value.address}
+							{placeDetail(value)}
 						</p>
 					)}
 				</div>
@@ -351,9 +352,9 @@ function PlacePicker({
 							className="block w-full px-3 py-2 text-left hover:bg-muted"
 						>
 							<span className="font-medium">{place.name}</span>
-							{place.address && (
+							{placeDetail(place) && (
 								<span className="block truncate text-sm text-muted-foreground">
-									{place.address}
+									{placeDetail(place)}
 								</span>
 							)}
 						</button>

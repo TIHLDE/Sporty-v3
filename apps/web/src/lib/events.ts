@@ -3,6 +3,7 @@ import type {
 	EventType,
 	Group,
 	GroupDetails,
+	Location,
 } from "@sporty/api/rest/types";
 
 export const EVENT_TYPE_LABEL: Record<EventType, string> = {
@@ -11,6 +12,25 @@ export const EVENT_TYPE_LABEL: Record<EventType, string> = {
 	sosialt: "Sosialt",
 	annet: "Annet",
 };
+
+/**
+ * Stedet med adresse: «Skansegata 20, 7014 Trondheim», eller «Dragvoll idrettssenter, Loholt allé
+ * 81, 7049 Trondheim» når stedet har et eget navn. Eldre arrangementer har bare navnet.
+ */
+export function locationLabel(location: Location) {
+	if (!location.address) return location.name;
+	if (location.address.startsWith(location.name)) return location.address;
+	return `${location.name}, ${location.address}`;
+}
+
+/**
+ * Linjen under navnet når man velger sted: adressen uten gatenavnet hvis navnet er gateadressen
+ * («Skansegata 20» over «7014 Trondheim»), ellers hele adressen.
+ */
+export function placeDetail(location: Location) {
+	if (!location.address.startsWith(location.name)) return location.address;
+	return location.address.slice(location.name.length).replace(/^,\s*/, "");
+}
 
 /** Svarfristen (eller starten, uten frist) har gått ut, så man kan ikke lenger svare. */
 export function answeringClosed(event: Event, now = new Date()) {

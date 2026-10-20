@@ -27,7 +27,12 @@ import { toast } from "sonner";
 import { AnswerButtons } from "@/components/event-card";
 import { Markdown } from "@/components/markdown";
 import { PageState } from "@/components/page-state";
-import { answeringClosed, EVENT_TYPE_LABEL, summarize } from "@/lib/events";
+import {
+	answeringClosed,
+	EVENT_TYPE_LABEL,
+	locationLabel,
+	summarize,
+} from "@/lib/events";
 import { useTRPC } from "@/utils/trpc";
 
 export const Route = createFileRoute("/_auth/arrangementer/$eventId/")({
@@ -91,7 +96,7 @@ function EventView({ event }: { event: Event }) {
 						className="flex w-fit items-center gap-1.5 text-muted-foreground hover:text-foreground hover:underline"
 					>
 						<MapPinIcon className="size-4" />
-						{event.location.name}
+						{locationLabel(event.location)}
 					</a>
 					{event.signupDeadline && (
 						<p className="text-sm text-muted-foreground">
@@ -132,9 +137,7 @@ function EventView({ event }: { event: Event }) {
 			)}
 
 			{event.type === "kamp" && started && <MatchResult event={event} />}
-			{event.description && (
-				<Markdown>{event.description}</Markdown>
-			)}
+			{event.description && <Markdown>{event.description}</Markdown>}
 
 			<div className="grid gap-4 sm:grid-cols-3">
 				<Participants title="Kommer" ids={kommer} group={group.data} />

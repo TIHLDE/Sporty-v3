@@ -162,6 +162,9 @@ model Event {
   /// Notat med ekstra informasjon om arrangementet.
   description      String    @default("")
   locationName     String
+  /// Gateadresse med postnummer og sted, f.eks. «Skansegata 20, 7014 Trondheim». Tom for eldre
+  /// arrangementer og steder uten adresse.
+  locationAddress  String    @default("")
   latitude         Float
   longitude        Float
   startsAt         DateTime

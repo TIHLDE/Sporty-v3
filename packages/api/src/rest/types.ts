@@ -105,6 +105,8 @@ export interface GroupFinesInfo {
 
 export interface Location {
 	name: string;
+	/** Gateadresse med postnummer og sted, f.eks. «Skansegata 20, 7014 Trondheim», eller "". */
+	address: string;
 	latitude: number;
 	longitude: number;
 }
@@ -367,7 +369,6 @@ export interface GiveFinesInput {
 
 export interface Place extends Location {
 	id: string | null;
-	address: string;
 }
 
 export interface CreateEventInput {

@@ -1,6 +1,6 @@
 import type { Event } from "@sporty/api/rest/types";
 
-import { EVENT_TYPE_LABEL } from "@/lib/events";
+import { EVENT_TYPE_LABEL, locationLabel } from "@/lib/events";
 
 const HOUR = 60 * 60 * 1000;
 
@@ -54,7 +54,7 @@ export function eventsToIcs(events: Event[], origin: string) {
 			`DTSTART:${icsDate(start)}`,
 			`DTEND:${icsDate(end)}`,
 			`SUMMARY:${icsText(title)}`,
-			`LOCATION:${icsText(event.location.name)}`,
+			`LOCATION:${icsText(locationLabel(event.location))}`,
 			`GEO:${event.location.latitude};${event.location.longitude}`,
 			`DESCRIPTION:${icsText(description)}`,
 			`URL:${origin}/arrangementer/${event.id}`,

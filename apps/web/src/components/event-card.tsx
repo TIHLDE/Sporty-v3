@@ -11,7 +11,12 @@ import { Link } from "@tanstack/react-router";
 import { CheckIcon, MapPinIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 
-import { answeringClosed, EVENT_TYPE_LABEL, summarize } from "@/lib/events";
+import {
+	answeringClosed,
+	EVENT_TYPE_LABEL,
+	locationLabel,
+	summarize,
+} from "@/lib/events";
 import { useTRPC } from "@/utils/trpc";
 
 /** Et arrangement i en liste: dato, tittel, tid, sted, hvor mange som kommer, og ditt svar. */
@@ -58,7 +63,7 @@ export function EventCard({
 				</p>
 				<p className="flex items-center gap-1 text-sm text-muted-foreground">
 					<MapPinIcon className="size-3.5" />
-					{event.location.name}
+					{locationLabel(event.location)}
 				</p>
 				<p className="text-xs text-muted-foreground">
 					{kommer.length} kommer · {kommerIkke.length} kommer ikke

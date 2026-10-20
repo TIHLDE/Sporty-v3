@@ -54,6 +54,8 @@ export function parseEventInput(input: CreateEventInput) {
 		opponent,
 		description: input.description?.trim() ?? "",
 		locationName: location.name.trim(),
+		// Eldre versjoner av appen sender ikke adressen.
+		locationAddress: location.address?.trim() ?? "",
 		latitude: location.latitude,
 		longitude: location.longitude,
 		startsAt,
@@ -65,7 +67,12 @@ export function parseEventInput(input: CreateEventInput) {
 /** Husker stedet for hovedgruppen, så det foreslås neste gang noen lager et arrangement. */
 export async function rememberPlace(
 	group: { id: string; parentId: string | null },
-	place: { locationName: string; latitude: number; longitude: number },
+	place: {
+		locationName: string;
+		locationAddress: string;
+		latitude: number;
+		longitude: number;
+	},
 ) {
 	const placeGroupId = group.parentId ?? group.id;
 	const existing = await prisma.place.findFirst({
@@ -77,6 +84,8 @@ export async function rememberPlace(
 			data: {
 				latitude: place.latitude,
 				longitude: place.longitude,
+				// Behold adressen vi har hvis arrangementet ikke kom med en.
+				...(place.locationAddress ? { address: place.locationAddress } : {}),
 				lastUsedAt: new Date(),
 			},
 		});
@@ -85,6 +94,7 @@ export async function rememberPlace(
 			data: {
 				groupId: placeGroupId,
 				name: place.locationName,
+				address: place.locationAddress,
 				latitude: place.latitude,
 				longitude: place.longitude,
 			},

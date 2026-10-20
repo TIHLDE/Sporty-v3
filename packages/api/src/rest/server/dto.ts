@@ -82,6 +82,7 @@ export function toEvent(event: EventRow, userId: string): Dto.Event {
 		description: event.description,
 		location: {
 			name: event.locationName,
+			address: event.locationAddress,
 			latitude: event.latitude,
 			longitude: event.longitude,
 		},
