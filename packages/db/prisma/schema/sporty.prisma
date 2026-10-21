@@ -77,6 +77,7 @@ model Person {
   messages             Message[]
   pushTokens           PushToken[]
   notificationSettings NotificationSettings?
+  matchStats           MatchStat[]
 }
 
 model Group {
@@ -87,6 +88,9 @@ model Group {
   description          String  @default("")
   /// Om medlemmene har posisjoner. Slås på per gruppe av admin, som også lager posisjonslisten.
   usesPositions        Boolean @default(false)
+  /// Kampfakta (mål, kort og lignende) på kamper. Settes på hovedgruppen og gjelder også
+  /// undergruppene, som bruker hovedgruppens hendelsestyper.
+  usesMatchFacts       Boolean @default(true)
   /// Gruppen på tihlde.org (slug i Photon) for idrettslag som hentes derfra. Medlemskapene i
   /// slike grupper synkes fra TIHLDE når medlemmene logger inn. Null for grupper laget i Sporty.
   photonSlug           String? @unique
@@ -115,6 +119,7 @@ model Group {
   conversation    Conversation?
   places          Place[]
   positions       GroupPosition[]
+  matchStatTypes  MatchStatType[]
 }
 
 model Membership {
@@ -132,6 +137,35 @@ model Membership {
   position       GroupPosition? @relation(fields: [positionId], references: [id], onDelete: SetNull)
 
   @@id([userId, groupId])
+}
+
+/// En type hendelse i kampfakta, f.eks. Mål eller Gult kort. Admin i hovedgruppen lager listen,
+/// og nye hovedgrupper får standardtypene.
+model MatchStatType {
+  id        String      @id @default(cuid())
+  groupId   String
+  name      String
+  /// Rekkefølgen typene vises i (lavest først).
+  sortOrder Int
+  group     Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  stats     MatchStat[]
+
+  @@unique([groupId, name])
+  @@index([groupId, sortOrder])
+}
+
+/// Én hendelse i en kamp: en spiller som scoret, fikk kort osv. Slettes sammen med typen.
+model MatchStat {
+  id        String        @id @default(cuid())
+  eventId   String
+  typeId    String
+  userId    String
+  createdAt DateTime      @default(now())
+  event     Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  type      MatchStatType @relation(fields: [typeId], references: [id], onDelete: Cascade)
+  user      Person        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
 }
 
 /// En posisjon i en gruppe med usesPositions, f.eks. Keeper eller Kant. Admin lager listen selv,
@@ -180,6 +214,7 @@ model Event {
 
   attendances Attendance[]
   fines       Fine[]
+  matchStats  MatchStat[]
 
   @@index([groupId, startsAt])
 }

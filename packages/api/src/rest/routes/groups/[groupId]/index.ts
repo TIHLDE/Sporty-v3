@@ -11,6 +11,10 @@ import {
 	requireAccess,
 	requireAdminOrParent,
 } from "../../../server/http";
+import {
+	getGroupMatchFacts,
+	requireMainGroup,
+} from "../../../server/match-facts";
 import { prisma } from "../../../server/prisma";
 import type { GroupDetails, UpdateGroupInput } from "../../../types";
 
@@ -51,6 +55,7 @@ export const GET = handler<{ groupId: string }>(
 			canManage,
 			canAdmin,
 			fines: await getFinesInfo(userId, groupId),
+			matchFacts: await getGroupMatchFacts(groupId),
 			positions: group.positions,
 			subgroups: group.subgroups.map((s) =>
 				toGroup(
@@ -100,6 +105,7 @@ export const PATCH = handler<{ groupId: string }>(
 			coverUploadId?: string | null;
 			color?: string;
 			usesPositions?: boolean;
+			usesMatchFacts?: boolean;
 		} = {};
 		if (input.name !== undefined) {
 			const name = input.name.trim();
@@ -135,6 +141,10 @@ export const PATCH = handler<{ groupId: string }>(
 		}
 		if (input.usesPositions !== undefined)
 			data.usesPositions = Boolean(input.usesPositions);
+		if (input.usesMatchFacts !== undefined) {
+			await requireMainGroup(groupId);
+			data.usesMatchFacts = Boolean(input.usesMatchFacts);
+		}
 
 		const { role } = await requireAccess(userId, groupId);
 		const group = await prisma.group.update({ where: { id: groupId }, data });

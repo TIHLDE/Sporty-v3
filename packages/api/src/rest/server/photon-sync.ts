@@ -4,6 +4,7 @@
 
 import { GROUP_COLORS } from "../lib/group-colors";
 import { getAccessToken } from "./http";
+import { defaultMatchStatTypes } from "./match-facts";
 import { removeFromGroup } from "./memberships";
 import {
 	type PhotonGroup,
@@ -87,6 +88,7 @@ async function upsertGroup(photonGroup: PhotonGroup) {
 			photonFinesActivated: photonGroup.finesActivated,
 			photonFinesAdminId: photonGroup.finesAdminId,
 			logoUrl: photonGroup.logoUrl,
+			matchStatTypes: defaultMatchStatTypes,
 		},
 		update: {
 			name: photonGroup.name,

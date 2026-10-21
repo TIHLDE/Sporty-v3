@@ -116,6 +116,35 @@ const eventsRouter = router({
 				theirScore: input.theirScore,
 			}),
 		),
+	/** Kampfakta: hendelsestypene til laget og hendelsene registrert på kampen. */
+	matchFacts: protectedProcedure
+		.input(z.object({ eventId: id }))
+		.query(({ ctx, input }) =>
+			restCall<Dto.MatchFacts>(
+				ctx,
+				"GET",
+				`/events/${enc(input.eventId)}/match-facts`,
+			),
+		),
+	addMatchStat: protectedProcedure
+		.input(z.object({ eventId: id, typeId: id, userId: id }))
+		.mutation(({ ctx, input: { eventId, ...stat } }) =>
+			restCall<Dto.MatchFacts>(
+				ctx,
+				"POST",
+				`/events/${enc(eventId)}/match-facts`,
+				stat,
+			),
+		),
+	removeMatchStat: protectedProcedure
+		.input(z.object({ eventId: id, statId: id }))
+		.mutation(({ ctx, input }) =>
+			restCall<Dto.MatchFacts>(
+				ctx,
+				"DELETE",
+				`/events/${enc(input.eventId)}/match-facts/${enc(input.statId)}`,
+			),
+		),
 	collectiveFine: protectedProcedure
 		.input(z.object({ eventId: id }))
 		.mutation(({ ctx, input }) =>
@@ -366,12 +395,51 @@ const groupAdminRouter = router({
 				description: z.string().optional(),
 				color: z.string().optional(),
 				usesPositions: z.boolean().optional(),
+				/** Bare på hovedgrupper. */
+				usesMatchFacts: z.boolean().optional(),
 				/** Opplastet bilde fra /api/uploads, eller null for å fjerne forsidebildet. */
 				coverUploadId: z.string().nullable().optional(),
 			}),
 		)
 		.mutation(({ ctx, input: { groupId, ...changes } }) =>
 			restCall<Dto.Group>(ctx, "PATCH", `/groups/${enc(groupId)}`, changes),
+		),
+	/** Hendelsestypene i kampfakta. Bare på hovedgrupper. */
+	addMatchStatType: protectedProcedure
+		.input(z.object({ groupId: id, name: z.string() }))
+		.mutation(({ ctx, input }) =>
+			restCall<Dto.MatchStatType>(
+				ctx,
+				"POST",
+				`/groups/${enc(input.groupId)}/match-stat-types`,
+				{ name: input.name },
+			),
+		),
+	updateMatchStatType: protectedProcedure
+		.input(
+			z.object({
+				groupId: id,
+				typeId: id,
+				name: z.string().optional(),
+				move: z.enum(["up", "down"]).optional(),
+			}),
+		)
+		.mutation(({ ctx, input: { groupId, typeId, ...changes } }) =>
+			restCall(
+				ctx,
+				"PATCH",
+				`/groups/${enc(groupId)}/match-stat-types/${enc(typeId)}`,
+				changes,
+			),
+		),
+	removeMatchStatType: protectedProcedure
+		.input(z.object({ groupId: id, typeId: id }))
+		.mutation(({ ctx, input }) =>
+			restCall(
+				ctx,
+				"DELETE",
+				`/groups/${enc(input.groupId)}/match-stat-types/${enc(input.typeId)}`,
+			),
 		),
 	/** Bare undergrupper kan slettes. */
 	delete: protectedProcedure

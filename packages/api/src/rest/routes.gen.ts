@@ -13,6 +13,8 @@ import * as r42 from "./routes/conversations/index";
 import * as r9 from "./routes/events/[eventId]/attendance";
 import * as r10 from "./routes/events/[eventId]/collective-fine";
 import * as r35 from "./routes/events/[eventId]/index";
+import * as rMatchStat from "./routes/events/[eventId]/match-facts/[statId]";
+import * as rMatchFacts from "./routes/events/[eventId]/match-facts/index";
 import * as r11 from "./routes/events/[eventId]/result";
 import * as r43 from "./routes/events/index";
 import * as r36 from "./routes/fines/[fineId]";
@@ -27,6 +29,8 @@ import * as r14 from "./routes/groups/[groupId]/files";
 import * as r15 from "./routes/groups/[groupId]/fines";
 import * as r37 from "./routes/groups/[groupId]/index";
 import * as r16 from "./routes/groups/[groupId]/laws";
+import * as rMatchStatType from "./routes/groups/[groupId]/match-stat-types/[typeId]";
+import * as rMatchStatTypes from "./routes/groups/[groupId]/match-stat-types/index";
 import * as r0 from "./routes/groups/[groupId]/members/[userId]/inactive";
 import * as r1 from "./routes/groups/[groupId]/members/[userId]/position";
 import * as r2 from "./routes/groups/[groupId]/members/[userId]/role";
@@ -66,12 +70,18 @@ export const routes = [
 	{ pattern: "/groups/:groupId/export/attendance", module: r3 },
 	{ pattern: "/groups/:groupId/export/results", module: r4 },
 	{ pattern: "/groups/:groupId/positions/:positionId", module: r5 },
+	{
+		pattern: "/groups/:groupId/match-stat-types/:typeId",
+		module: rMatchStatType,
+	},
+	{ pattern: "/events/:eventId/match-facts/:statId", module: rMatchStat },
 	{ pattern: "/announcements/:announcementId/comments", module: r6 },
 	{ pattern: "/conversations/:conversationId/messages", module: r7 },
 	{ pattern: "/conversations/:conversationId/read", module: r8 },
 	{ pattern: "/events/:eventId/attendance", module: r9 },
 	{ pattern: "/events/:eventId/collective-fine", module: r10 },
 	{ pattern: "/events/:eventId/result", module: r11 },
+	{ pattern: "/events/:eventId/match-facts", module: rMatchFacts },
 	{ pattern: "/groups/:groupId/announcements", module: r12 },
 	{ pattern: "/groups/:groupId/events", module: r13 },
 	{ pattern: "/groups/:groupId/files", module: r14 },
@@ -81,6 +91,7 @@ export const routes = [
 	{ pattern: "/groups/:groupId/payments", module: r18 },
 	{ pattern: "/groups/:groupId/polls", module: r19 },
 	{ pattern: "/groups/:groupId/positions", module: r20 },
+	{ pattern: "/groups/:groupId/match-stat-types", module: rMatchStatTypes },
 	{ pattern: "/groups/:groupId/subgroups", module: r21 },
 	{ pattern: "/notifications/:notificationId/read", module: r22 },
 	{ pattern: "/payments/:paymentId/paid", module: r23 },

@@ -19,14 +19,25 @@ async function main() {
   await prisma.$executeRawUnsafe(`
     TRUNCATE "Person", "Group", "Membership", "Event", "Attendance", "Announcement", "Poll",
       "PollOption", "PollVote", "Law", "Fine", "PaymentRequest", "PaymentConfirmation",
-      "GroupFile", "Notification", "Conversation", "ConversationMember", "Message", "Place", "PollComment", "Upload", "AnnouncementComment", "GroupPosition", "FineRequest", "PushToken", "NotificationSettings" CASCADE
+      "GroupFile", "Notification", "Conversation", "ConversationMember", "Message", "Place", "PollComment", "Upload", "AnnouncementComment", "GroupPosition", "FineRequest", "PushToken", "NotificationSettings", "MatchStatType", "MatchStat" CASCADE
   `);
 
   await prisma.person.createMany({ data: data.users });
 
   // Hovedgrupper før undergrupper, ellers mangler parentId-referansen.
   const sortedGroups = [...data.groups].sort((a, b) => Number(a.parentId !== null) - Number(b.parentId !== null));
-  for (const group of sortedGroups) await prisma.group.create({ data: group });
+  // Hovedgruppene får standardtypene i kampfakta, som i DEFAULT_MATCH_STAT_TYPES i API-et.
+  const matchStatTypes = ['Mål', 'Assist', 'Banens beste', 'Gult kort', 'Rødt kort'];
+  for (const group of sortedGroups) {
+    await prisma.group.create({
+      data: {
+        ...group,
+        ...(group.parentId === null
+          ? { matchStatTypes: { create: matchStatTypes.map((name, sortOrder) => ({ name, sortOrder })) } }
+          : {}),
+      },
+    });
+  }
 
   await prisma.groupPosition.createMany({ data: data.positions });
   await prisma.membership.createMany({ data: data.memberships });

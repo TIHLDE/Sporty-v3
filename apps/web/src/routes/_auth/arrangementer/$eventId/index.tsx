@@ -1,5 +1,9 @@
 import { formatEventRange } from "@sporty/api/rest/lib/dates";
-import type { Event, GroupDetails } from "@sporty/api/rest/types";
+import type {
+	Event,
+	GroupDetails,
+	MatchFacts as MatchFactsData,
+} from "@sporty/api/rest/types";
 import { Badge } from "@sporty/ui/components/badge";
 import { Button } from "@sporty/ui/components/button";
 import {
@@ -12,6 +16,13 @@ import {
 } from "@sporty/ui/components/dialog";
 import { Input } from "@sporty/ui/components/input";
 import { Label } from "@sporty/ui/components/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@sporty/ui/components/select";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
@@ -20,6 +31,7 @@ import {
 	GavelIcon,
 	MapPinIcon,
 	PencilIcon,
+	Trash2Icon,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -136,7 +148,9 @@ function EventView({ event }: { event: Event }) {
 				</p>
 			)}
 
-			{event.type === "kamp" && started && <MatchResult event={event} />}
+			{event.type === "kamp" && started && (
+				<MatchFacts event={event} group={group.data} />
+			)}
 			{event.description && <Markdown>{event.description}</Markdown>}
 
 			<div className="grid gap-4 sm:grid-cols-3">
@@ -190,6 +204,160 @@ function Participants({
 }
 
 /** Resultatet på en kamp som har startet. Sub-/admin kan registrere, endre eller fjerne det. */
+/**
+ * Kampfakta på en kamp som har startet eller er ferdig: resultatet og hendelsene (mål, kort …).
+ * Vises ikke når admin har skrudd av kampfakta for laget. Sub-/admin registrerer og fjerner.
+ */
+function MatchFacts({
+	event,
+	group,
+}: {
+	event: Event;
+	group: GroupDetails | undefined;
+}) {
+	const trpc = useTRPC();
+	const queryClient = useQueryClient();
+	const facts = useQuery(
+		trpc.events.matchFacts.queryOptions({ eventId: event.id }),
+	);
+	const mutationOptions = {
+		onSuccess: (data: MatchFactsData) =>
+			queryClient.setQueryData(
+				trpc.events.matchFacts.queryKey({ eventId: event.id }),
+				data,
+			),
+		onError: (error: { message: string }) => toast.error(error.message),
+	};
+	const add = useMutation(
+		trpc.events.addMatchStat.mutationOptions(mutationOptions),
+	);
+	const remove = useMutation(
+		trpc.events.removeMatchStat.mutationOptions(mutationOptions),
+	);
+	const [typeId, setTypeId] = useState<string | null>(null);
+	const [userId, setUserId] = useState<string | null>(null);
+
+	if (!facts.data?.enabled) return null;
+	const { types, stats, canEdit } = facts.data;
+	const hasResult = event.ourScore !== null && event.theirScore !== null;
+	if (!canEdit && !hasResult && stats.length === 0) return null;
+
+	const selectedType = typeId ?? types[0]?.id ?? null;
+	// Samme rekkefølge som typene i innstillingene, og ellers i den rekkefølgen de ble registrert.
+	const order = new Map(types.map((type, index) => [type.id, index]));
+	const sorted = [...stats].sort(
+		(a, b) => (order.get(a.type.id) ?? 0) - (order.get(b.type.id) ?? 0),
+	);
+	// De som har meldt seg på kampen først.
+	const players = (group?.members ?? [])
+		.map((m) => m.user)
+		.sort(
+			(a, b) =>
+				Number(event.attendance[b.id] === "kommer") -
+					Number(event.attendance[a.id] === "kommer") ||
+				a.name.localeCompare(b.name),
+		);
+	const selectedPlayer = players.find((p) => p.id === userId);
+
+	return (
+		<section className="grid gap-3">
+			<h2 className="text-lg font-semibold">Kampfakta</h2>
+			<MatchResult event={event} />
+			<div className="grid gap-2 rounded-xl border p-4">
+				<p className="text-sm text-muted-foreground">Hendelser</p>
+				{sorted.length === 0 ? (
+					<p className="text-sm text-muted-foreground">
+						Ingen hendelser er registrert.
+					</p>
+				) : (
+					<ul className="divide-y">
+						{sorted.map((stat) => (
+							<li key={stat.id} className="flex items-center gap-3 py-2">
+								<span className="w-32 font-medium">{stat.type.name}</span>
+								<span className="flex-1">{stat.user.name}</span>
+								{canEdit && (
+									<Button
+										size="icon-sm"
+										variant="ghost"
+										aria-label={`Fjern ${stat.type.name} for ${stat.user.name}`}
+										disabled={remove.isPending}
+										onClick={() =>
+											remove.mutate({ eventId: event.id, statId: stat.id })
+										}
+									>
+										<Trash2Icon className="text-destructive" />
+									</Button>
+								)}
+							</li>
+						))}
+					</ul>
+				)}
+			</div>
+			{canEdit && types.length === 0 && (
+				<p className="text-sm text-muted-foreground">
+					Laget har ingen hendelser i kampfakta. Admin legger dem til under
+					innstillingene til gruppen.
+				</p>
+			)}
+			{canEdit && types.length > 0 && (
+				<div className="grid gap-3 rounded-xl border p-4">
+					<p className="font-medium">Ny hendelse</p>
+					<div className="flex flex-wrap gap-2">
+						<Select
+							value={selectedType}
+							onValueChange={(value) => value && setTypeId(value)}
+						>
+							<SelectTrigger className="w-40" aria-label="Hendelse">
+								<SelectValue>
+									{types.find((t) => t.id === selectedType)?.name}
+								</SelectValue>
+							</SelectTrigger>
+							<SelectContent>
+								{types.map((type) => (
+									<SelectItem key={type.id} value={type.id}>
+										{type.name}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+						<Select value={userId} onValueChange={(value) => setUserId(value)}>
+							<SelectTrigger className="w-56" aria-label="Spiller">
+								<SelectValue>
+									{selectedPlayer ? (
+										selectedPlayer.name
+									) : (
+										<span className="text-muted-foreground">Velg spiller</span>
+									)}
+								</SelectValue>
+							</SelectTrigger>
+							<SelectContent>
+								{players.map((player) => (
+									<SelectItem key={player.id} value={player.id}>
+										{player.name}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+						<Button
+							disabled={!selectedType || !userId || add.isPending}
+							onClick={() =>
+								selectedType &&
+								userId &&
+								add.mutate(
+									{ eventId: event.id, typeId: selectedType, userId },
+									{ onSuccess: () => setUserId(null) },
+								)
+							}
+						>
+							Legg til
+						</Button>
+					</div>
+				</div>
+			)}
+		</section>
+	);
+}
+
 function MatchResult({ event }: { event: Event }) {
 	const [editing, setEditing] = useState(false);
 	const hasResult = event.ourScore !== null && event.theirScore !== null;

@@ -109,6 +109,7 @@ function Settings({ group }: { group: GroupDetails }) {
 			{group.canAdmin && <GroupDetailsSection group={group} />}
 			<MembersSection group={group} />
 			{group.canAdmin && <PositionsSection group={group} />}
+			{group.canAdmin && !group.parentId && <MatchFactsSection group={group} />}
 			{group.canAdmin && !group.parentId && <SubgroupsSection group={group} />}
 			{group.canAdmin && group.parentId && (
 				<SubgroupAdminSection group={group} />
@@ -589,6 +590,179 @@ function PositionsSection({ group }: { group: GroupDetails }) {
 							value={newName}
 							onChange={(e) => setNewName(e.target.value)}
 							placeholder="Ny posisjon, f.eks. Keeper"
+							maxLength={40}
+						/>
+						<Button type="submit" disabled={!newName.trim() || busy}>
+							Legg til
+						</Button>
+					</form>
+				</>
+			)}
+		</Section>
+	);
+}
+
+/** (Admin i hovedgruppen) Slå kampfakta av og på for hele laget, og lag listen over hendelser. */
+function MatchFactsSection({ group }: { group: GroupDetails }) {
+	const trpc = useTRPC();
+	const options = useAdminMutationOptions();
+	const update = useMutation(trpc.groupAdmin.update.mutationOptions(options));
+	const create = useMutation(
+		trpc.groupAdmin.addMatchStatType.mutationOptions(options),
+	);
+	const rename = useMutation(
+		trpc.groupAdmin.updateMatchStatType.mutationOptions(options),
+	);
+	const remove = useMutation(
+		trpc.groupAdmin.removeMatchStatType.mutationOptions(options),
+	);
+	const [newName, setNewName] = useState("");
+	const [editing, setEditing] = useState<{ id: string; name: string } | null>(
+		null,
+	);
+	const busy = create.isPending || rename.isPending || remove.isPending;
+
+	return (
+		<Section
+			title="Kampfakta"
+			description="Resultat og hendelser som mål og kort på kampene, også i undergruppene. Sub-/admin registrerer dem på hver kamp."
+		>
+			<CheckboxField
+				checked={group.matchFacts.enabled}
+				disabled={update.isPending}
+				onCheckedChange={(checked) =>
+					update.mutate({ groupId: group.id, usesMatchFacts: checked })
+				}
+			>
+				Vis kampfakta
+			</CheckboxField>
+			{group.matchFacts.enabled && (
+				<>
+					<div className="divide-y rounded-lg border">
+						{group.matchFacts.types.length === 0 && (
+							<p className="p-3 text-sm text-muted-foreground">
+								Ingen hendelser ennå.
+							</p>
+						)}
+						{group.matchFacts.types.map((type, index) => (
+							<div key={type.id} className="flex items-center gap-2 p-2">
+								{editing?.id === type.id ? (
+									<>
+										<Input
+											aria-label="Nytt navn"
+											value={editing.name}
+											onChange={(e) =>
+												setEditing({ id: type.id, name: e.target.value })
+											}
+											className="h-8"
+										/>
+										<Button
+											size="sm"
+											disabled={!editing.name.trim() || busy}
+											onClick={() =>
+												rename.mutate(
+													{
+														groupId: group.id,
+														typeId: type.id,
+														name: editing.name.trim(),
+													},
+													{ onSuccess: () => setEditing(null) },
+												)
+											}
+										>
+											Lagre
+										</Button>
+										<Button
+											size="sm"
+											variant="ghost"
+											onClick={() => setEditing(null)}
+										>
+											Avbryt
+										</Button>
+									</>
+								) : (
+									<>
+										<span className="flex-1 px-1">{type.name}</span>
+										<Button
+											size="icon"
+											variant="ghost"
+											aria-label={`Flytt ${type.name} opp`}
+											disabled={busy || index === 0}
+											onClick={() =>
+												rename.mutate({
+													groupId: group.id,
+													typeId: type.id,
+													move: "up",
+												})
+											}
+										>
+											<ArrowUpIcon />
+										</Button>
+										<Button
+											size="icon"
+											variant="ghost"
+											aria-label={`Flytt ${type.name} ned`}
+											disabled={
+												busy || index === group.matchFacts.types.length - 1
+											}
+											onClick={() =>
+												rename.mutate({
+													groupId: group.id,
+													typeId: type.id,
+													move: "down",
+												})
+											}
+										>
+											<ArrowDownIcon />
+										</Button>
+										<Button
+											size="icon"
+											variant="ghost"
+											aria-label={`Gi ${type.name} nytt navn`}
+											onClick={() =>
+												setEditing({ id: type.id, name: type.name })
+											}
+										>
+											<PencilIcon />
+										</Button>
+										<Button
+											size="icon"
+											variant="ghost"
+											aria-label={`Slett ${type.name}`}
+											disabled={busy}
+											onClick={() =>
+												window.confirm(
+													`Slette ${type.name}? Alle hendelser av denne typen som er registrert på kamper, slettes også.`,
+												) &&
+												remove.mutate({
+													groupId: group.id,
+													typeId: type.id,
+												})
+											}
+										>
+											<Trash2Icon className="text-destructive" />
+										</Button>
+									</>
+								)}
+							</div>
+						))}
+					</div>
+					<form
+						className="flex gap-2"
+						onSubmit={(e) => {
+							e.preventDefault();
+							if (newName.trim())
+								create.mutate(
+									{ groupId: group.id, name: newName.trim() },
+									{ onSuccess: () => setNewName("") },
+								);
+						}}
+					>
+						<Input
+							aria-label="Ny hendelse"
+							value={newName}
+							onChange={(e) => setNewName(e.target.value)}
+							placeholder="Ny hendelse, f.eks. Redning"
 							maxLength={40}
 						/>
 						<Button type="submit" disabled={!newName.trim() || busy}>
