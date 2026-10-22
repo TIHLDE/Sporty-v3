@@ -622,13 +622,51 @@ const messagesRouter = router({
 			),
 		),
 	send: protectedProcedure
-		.input(z.object({ conversationId: id, body: z.string() }))
+		.input(
+			z.object({
+				conversationId: id,
+				body: z.string(),
+				replyToId: id.nullish(),
+			}),
+		)
 		.mutation(({ ctx, input }) =>
 			restCall<Dto.Message>(
 				ctx,
 				"POST",
 				`/conversations/${enc(input.conversationId)}/messages`,
+				{ body: input.body, replyToId: input.replyToId ?? null },
+			),
+		),
+	/** Reager med en emoji, eller fjern reaksjonen hvis man allerede har den. */
+	react: protectedProcedure
+		.input(z.object({ conversationId: id, messageId: id, emoji: z.string() }))
+		.mutation(({ ctx, input }) =>
+			restCall<Dto.Message>(
+				ctx,
+				"POST",
+				`/conversations/${enc(input.conversationId)}/messages/${enc(input.messageId)}/reactions`,
+				{ emoji: input.emoji },
+			),
+		),
+	/** Rediger en av sine egne meldinger (første 15 minutter). */
+	edit: protectedProcedure
+		.input(z.object({ conversationId: id, messageId: id, body: z.string() }))
+		.mutation(({ ctx, input }) =>
+			restCall<Dto.Message>(
+				ctx,
+				"PATCH",
+				`/conversations/${enc(input.conversationId)}/messages/${enc(input.messageId)}`,
 				{ body: input.body },
+			),
+		),
+	/** Slett en av sine egne meldinger (første 15 minutter). */
+	delete: protectedProcedure
+		.input(z.object({ conversationId: id, messageId: id }))
+		.mutation(({ ctx, input }) =>
+			restCall<Dto.Message>(
+				ctx,
+				"DELETE",
+				`/conversations/${enc(input.conversationId)}/messages/${enc(input.messageId)}`,
 			),
 		),
 	markRead: protectedProcedure

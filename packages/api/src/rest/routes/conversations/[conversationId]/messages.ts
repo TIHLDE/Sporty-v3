@@ -1,7 +1,9 @@
 import { messageContent } from "../../../lib/notification-content";
 import { HttpError, getUserId, handler, readJson } from "../../../server/http";
 import {
+	MAX_MESSAGE_LENGTH,
 	messageInclude,
+	othersReadAt,
 	requireConversation,
 	toMessage,
 } from "../../../server/messaging";
@@ -10,7 +12,6 @@ import { sendPush } from "../../../server/push";
 import type { MessagePage } from "../../../types";
 
 const PAGE_SIZE = 30;
-const MAX_LENGTH = 4000;
 
 /**
  * Meldinger i samtalen, nyeste først, 30 om gangen. `?cursor=<meldings-id>` henter meldingene
@@ -19,7 +20,7 @@ const MAX_LENGTH = 4000;
 export const GET = handler<{ conversationId: string }>(
 	async (request, { conversationId }): Promise<MessagePage> => {
 		const userId = await getUserId(request);
-		await requireConversation(userId, conversationId);
+		const conversation = await requireConversation(userId, conversationId);
 		const cursor = new URL(request.url).searchParams.get("cursor");
 
 		const messages = await prisma.message.findMany({
@@ -33,28 +34,44 @@ export const GET = handler<{ conversationId: string }>(
 		const hasMore = messages.length > PAGE_SIZE;
 		const page = messages.slice(0, PAGE_SIZE);
 		return {
-			messages: page.map(toMessage),
+			messages: page.map((m) => toMessage(m, userId)),
 			nextCursor: hasMore ? (page.at(-1)?.id ?? null) : null,
+			readAt: await othersReadAt(conversation, userId),
 		};
 	},
 );
 
 /**
- * Send en melding. Avsenderen har dermed lest samtalen. De andre i samtalen får push-varsel: alle
+ * Send en melding, eventuelt som svar på en annen (`replyToId`). Avsenderen har dermed lest samtalen. De andre i samtalen får push-varsel: alle
  * medlemmene av gruppen i en gruppechat, den andre personen i en direktemelding.
  */
 export const POST = handler<{ conversationId: string }>(
 	async (request, { conversationId }) => {
 		const userId = await getUserId(request);
 		const conversation = await requireConversation(userId, conversationId);
-		const { body } = await readJson<{ body: string }>(request);
+		const { body, replyToId } = await readJson<{
+			body: string;
+			replyToId?: string | null;
+		}>(request);
 		const text = body?.trim();
 		if (!text) throw new HttpError(400, "Meldingen er tom");
-		if (text.length > MAX_LENGTH)
-			throw new HttpError(400, `Maks ${MAX_LENGTH} tegn`);
+		if (text.length > MAX_MESSAGE_LENGTH)
+			throw new HttpError(400, `Maks ${MAX_MESSAGE_LENGTH} tegn`);
+		if (replyToId) {
+			const original = await prisma.message.findUnique({
+				where: { id: replyToId },
+			});
+			if (!original || original.conversationId !== conversationId)
+				throw new HttpError(400, "Fant ikke meldingen du svarer på");
+		}
 
 		const message = await prisma.message.create({
-			data: { conversationId, senderId: userId, body: text },
+			data: {
+				conversationId,
+				senderId: userId,
+				body: text,
+				replyToId: replyToId || null,
+			},
 			include: messageInclude,
 		});
 		await prisma.conversationMember.upsert({
@@ -83,6 +100,6 @@ export const POST = handler<{ conversationId: string }>(
 			}),
 		);
 
-		return Response.json(toMessage(message), { status: 201 });
+		return Response.json(toMessage(message, userId), { status: 201 });
 	},
 );

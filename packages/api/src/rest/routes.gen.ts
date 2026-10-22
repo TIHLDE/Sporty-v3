@@ -7,6 +7,8 @@ import * as r40 from "./routes/announcements/index";
 import * as r41 from "./routes/contacts";
 import * as r34 from "./routes/conversations/[conversationId]/index";
 import * as r7 from "./routes/conversations/[conversationId]/messages";
+import * as rMessage from "./routes/conversations/[conversationId]/messages/[messageId]/index";
+import * as rMessageReactions from "./routes/conversations/[conversationId]/messages/[messageId]/reactions";
 import * as r8 from "./routes/conversations/[conversationId]/read";
 import * as r26 from "./routes/conversations/direct";
 import * as r42 from "./routes/conversations/index";
@@ -75,6 +77,14 @@ export const routes = [
 		module: rMatchStatType,
 	},
 	{ pattern: "/events/:eventId/match-facts/:statId", module: rMatchStat },
+	{
+		pattern: "/conversations/:conversationId/messages/:messageId/reactions",
+		module: rMessageReactions,
+	},
+	{
+		pattern: "/conversations/:conversationId/messages/:messageId",
+		module: rMessage,
+	},
 	{ pattern: "/announcements/:announcementId/comments", module: r6 },
 	{ pattern: "/conversations/:conversationId/messages", module: r7 },
 	{ pattern: "/conversations/:conversationId/read", module: r8 },

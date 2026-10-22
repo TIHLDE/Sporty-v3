@@ -366,14 +366,41 @@ export interface Message {
 	id: string;
 	conversationId: string;
 	sender: User;
+	/** Tom hvis meldingen er slettet. */
 	body: string;
 	sentAt: string;
+	deleted: boolean;
+	/** Teksten er endret etter at meldingen ble sendt. */
+	edited: boolean;
+	/** Meldingen dette er et svar på. */
+	replyTo: MessageQuote | null;
+	/** Én per emoji, i rekkefølgen de først ble brukt. */
+	reactions: MessageReaction[];
+}
+
+export interface MessageReaction {
+	emoji: string;
+	count: number;
+	/** Brukeren selv har reagert med denne. */
+	mine: boolean;
+	/** Alle som har reagert med denne, i rekkefølgen de reagerte. */
+	users: User[];
+}
+
+/** Den korte versjonen av en melding som vises over et svar. */
+export interface MessageQuote {
+	id: string;
+	senderName: string;
+	body: string;
+	deleted: boolean;
 }
 
 /** Én side med meldinger, nyeste først. `nextCursor` henter eldre meldinger. */
 export interface MessagePage {
 	messages: Message[];
 	nextCursor: string | null;
+	/** Tidspunktet alle de andre i samtalen har lest frem til. Null hvis noen ikke har lest den. */
+	readAt: string | null;
 }
 
 export interface ConversationDetails {
