@@ -217,6 +217,8 @@ model Event {
   theirScore       Int?
   /// Valgfri. Etter fristen kan man ikke lenger svare på arrangementet.
   signupDeadline   DateTime?
+  /// Valgfri. Når så mange har svart «kommer», kan ingen flere melde seg på.
+  maxAttendees     Int?
   /// Når fellesbot ble gitt for arrangementet. Den kan bare gis én gang.
   collectiveFineAt DateTime?
 

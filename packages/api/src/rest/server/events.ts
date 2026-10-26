@@ -5,6 +5,7 @@ import { HttpError } from "./http";
 import { prisma } from "./prisma";
 
 const EVENT_TYPES: EventType[] = ["trening", "kamp", "sosialt", "annet"];
+const MAX_ATTENDEES_LIMIT = 10_000;
 
 function parseDate(value: string | null | undefined, field: string) {
 	if (value == null) return null;
@@ -48,6 +49,20 @@ export function parseEventInput(input: CreateEventInput) {
 		);
 	}
 
+	// undefined: feltet ble ikke sendt (eldre apper), så en eksisterende grense beholdes.
+	const { maxAttendees } = input;
+	if (
+		maxAttendees != null &&
+		(!Number.isInteger(maxAttendees) ||
+			maxAttendees < 1 ||
+			maxAttendees > MAX_ATTENDEES_LIMIT)
+	) {
+		throw new HttpError(
+			400,
+			"Maks antall deltakere må være et helt tall over 0",
+		);
+	}
+
 	return {
 		title,
 		type: input.type,
@@ -61,6 +76,7 @@ export function parseEventInput(input: CreateEventInput) {
 		startsAt,
 		endsAt,
 		signupDeadline,
+		maxAttendees,
 	};
 }
 

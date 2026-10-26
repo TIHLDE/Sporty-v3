@@ -163,6 +163,8 @@ export interface Event {
 	end: string | null;
 	/** Etter fristen kan man ikke lenger svare. */
 	signupDeadline: string | null;
+	/** Maks antall som kan svare «kommer». Null betyr ingen grense. */
+	maxAttendees: number | null;
 	/** Resultat for kamper (egne mål og motstanderens), eller null hvis ikke registrert. */
 	ourScore: number | null;
 	theirScore: number | null;
@@ -456,6 +458,8 @@ export interface CreateEventInput {
 	location: Location;
 	description: string;
 	signupDeadline: string | null;
+	/** Null fjerner grensen. Mangler feltet (eldre apper), beholdes den som er satt. */
+	maxAttendees?: number | null;
 }
 
 export interface CreateAnnouncementInput {

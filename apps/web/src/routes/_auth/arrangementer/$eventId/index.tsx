@@ -115,6 +115,19 @@ function EventView({ event }: { event: Event }) {
 							Svarfrist {formatEventRange(event.signupDeadline, null)}
 						</p>
 					)}
+					{event.maxAttendees !== null && (
+						<p
+							className={
+								kommer.length >= event.maxAttendees
+									? "text-sm font-medium text-destructive"
+									: "text-sm text-muted-foreground"
+							}
+						>
+							{kommer.length >= event.maxAttendees
+								? `Fullt: ${kommer.length} av ${event.maxAttendees} plasser er tatt`
+								: `${kommer.length} av ${event.maxAttendees} plasser er tatt`}
+						</p>
+					)}
 				</div>
 				<div className="flex flex-col items-end gap-2">
 					{event.canManage && !isPast && (
