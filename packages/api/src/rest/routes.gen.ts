@@ -50,6 +50,7 @@ import * as r29 from "./routes/me/settings";
 import * as r22 from "./routes/notifications/[notificationId]/read";
 import * as r48 from "./routes/notifications/index";
 import * as r30 from "./routes/notifications/read-all";
+import * as rPaymentConfirmation from "./routes/payments/[paymentId]/confirmations/[userId]";
 import * as r23 from "./routes/payments/[paymentId]/paid";
 import * as r49 from "./routes/places/index";
 import * as r31 from "./routes/places/search";
@@ -104,6 +105,10 @@ export const routes = [
 	{ pattern: "/groups/:groupId/match-stat-types", module: rMatchStatTypes },
 	{ pattern: "/groups/:groupId/subgroups", module: r21 },
 	{ pattern: "/notifications/:notificationId/read", module: r22 },
+	{
+		pattern: "/payments/:paymentId/confirmations/:userId",
+		module: rPaymentConfirmation,
+	},
 	{ pattern: "/payments/:paymentId/paid", module: r23 },
 	{ pattern: "/polls/:pollId/comments", module: r24 },
 	{ pattern: "/polls/:pollId/vote", module: r25 },

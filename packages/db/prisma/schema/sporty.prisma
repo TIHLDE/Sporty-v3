@@ -7,6 +7,13 @@ enum Role {
   member
 }
 
+/// Status på et medlems «Jeg har betalt». Sub/admin sjekker i Vipps og godkjenner eller avviser.
+enum PaymentStatus {
+  pending
+  approved
+  rejected
+}
+
 enum AttendanceStatus {
   kommer
   kommer_ikke
@@ -384,13 +391,15 @@ model PaymentRequest {
   confirmations PaymentConfirmation[]
 }
 
-/// Medlemmet har selv markert at det har betalt.
+/// Medlemmet har selv markert at det har betalt. Teller først som betalt når sub/admin har godkjent.
 model PaymentConfirmation {
-  paymentId String
-  userId    String
-  createdAt DateTime       @default(now())
-  payment   PaymentRequest @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  user      Person         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paymentId  String
+  userId     String
+  status     PaymentStatus  @default(pending)
+  createdAt  DateTime       @default(now())
+  reviewedAt DateTime?
+  payment    PaymentRequest @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  user       Person         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([paymentId, userId])
 }

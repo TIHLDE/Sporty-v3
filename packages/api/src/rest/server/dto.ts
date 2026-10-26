@@ -228,15 +228,19 @@ export function toFine(
 
 export const paymentInclude = {
 	createdBy: { select: { name: true } },
-	confirmations: { select: { userId: true } },
+	confirmations: { include: { user: true }, orderBy: { createdAt: "asc" } },
 	group: { select: { _count: { select: { memberships: true } } } },
 } satisfies Prisma.PaymentRequestInclude;
 
+/** `userId` er den som ser på betalingen, så `myStatus` blir riktig. */
 export function toPayment(
 	p: Prisma.PaymentRequestGetPayload<{ include: typeof paymentInclude }>,
+	userId: string,
 	/** Sub-/admin i gruppen eller i hovedgruppen. */
 	canManage: boolean,
 ): Dto.PaymentRequest {
+	const count = (status: Dto.PaymentStatus) =>
+		p.confirmations.filter((c) => c.status === status).length;
 	return {
 		id: p.id,
 		groupId: p.groupId,
@@ -247,9 +251,19 @@ export function toPayment(
 		vippsNumber: p.vippsNumber,
 		dueDate: p.dueDate.toISOString(),
 		createdAt: p.createdAt.toISOString(),
-		paidUserIds: p.confirmations.map((c) => c.userId),
+		myStatus:
+			p.confirmations.find((c) => c.userId === userId)?.status ?? "unpaid",
+		approvedCount: count("approved"),
+		pendingCount: count("pending"),
 		memberCount: p.group._count.memberships,
 		canManage,
+		confirmations: canManage
+			? p.confirmations.map((c) => ({
+					user: toUser(c.user),
+					status: c.status,
+					createdAt: c.createdAt.toISOString(),
+				}))
+			: null,
 	};
 }
 

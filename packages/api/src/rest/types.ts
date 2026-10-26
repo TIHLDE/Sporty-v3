@@ -315,9 +315,23 @@ export interface PaymentRequest {
 	vippsNumber: string;
 	dueDate: string;
 	createdAt: string;
-	paidUserIds: string[];
+	/** Brukerens egen status. `rejected` betyr at sub/admin avviste forrige «Jeg har betalt». */
+	myStatus: PaymentStatus | "unpaid";
+	/** Godkjent av sub/admin. Det er bare disse som teller som betalt. */
+	approvedCount: number;
+	pendingCount: number;
 	memberCount: number;
 	canManage: boolean;
+	/** Alle som har trykket «Jeg har betalt». Bare for sub/admin, ellers null. */
+	confirmations: PaymentConfirmation[] | null;
+}
+
+export type PaymentStatus = "pending" | "approved" | "rejected";
+
+export interface PaymentConfirmation {
+	user: User;
+	status: PaymentStatus;
+	createdAt: string;
 }
 
 export interface GroupFile {

@@ -370,7 +370,24 @@ const paymentsRouter = router({
 				payment,
 			),
 		),
-	/** Medlemmet markerer selv at det har betalt (eller angrer). */
+	/** (Sub-/admin) Godkjenn eller avvis et medlems «Jeg har betalt». */
+	review: protectedProcedure
+		.input(
+			z.object({
+				paymentId: id,
+				userId: id,
+				status: z.enum(["approved", "rejected"]),
+			}),
+		)
+		.mutation(({ ctx, input }) =>
+			restCall<Dto.PaymentRequest>(
+				ctx,
+				"PUT",
+				`/payments/${enc(input.paymentId)}/confirmations/${enc(input.userId)}`,
+				{ status: input.status },
+			),
+		),
+	/** Medlemmet markerer selv at det har betalt (eller angrer mens det venter). */
 	setPaid: protectedProcedure
 		.input(z.object({ paymentId: id, paid: z.boolean() }))
 		.mutation(({ ctx, input }) =>
