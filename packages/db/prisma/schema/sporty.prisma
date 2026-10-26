@@ -232,6 +232,8 @@ model Attendance {
   eventId   String
   userId    String
   status    AttendanceStatus
+  /// Hvorfor man ikke kommer. Påkrevd ved «kommer ikke», tom ved «kommer».
+  reason    String           @default("")
   updatedAt DateTime         @updatedAt
   event     Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
   user      Person           @relation(fields: [userId], references: [id], onDelete: Cascade)

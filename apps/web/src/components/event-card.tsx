@@ -6,9 +6,19 @@ import {
 import type { Event } from "@sporty/api/rest/types";
 import { Badge } from "@sporty/ui/components/badge";
 import { Button } from "@sporty/ui/components/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@sporty/ui/components/dialog";
+import { Textarea } from "@sporty/ui/components/textarea";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { CheckIcon, MapPinIcon, XIcon } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -69,25 +79,39 @@ export function EventCard({
 					{kommer.length} kommer · {kommerIkke.length} kommer ikke
 				</p>
 			</div>
-			{canAnswer && <AnswerButtons eventId={event.id} myStatus={myStatus} />}
+			{canAnswer && (
+				<AnswerButtons
+					eventId={event.id}
+					myStatus={myStatus}
+					myReason={myId ? event.absenceReasons[myId] : undefined}
+				/>
+			)}
 		</div>
 	);
 }
 
-/** Kommer / Kommer ikke. Det valgte svaret er fylt ut. */
+/**
+ * Kommer / Kommer ikke. Det valgte svaret er fylt ut. «Kommer ikke» krever en begrunnelse, som
+ * skrives i en dialog (og kan endres ved å klikke på knappen igjen).
+ */
 export function AnswerButtons({
 	eventId,
 	myStatus,
+	myReason,
 }: {
 	eventId: string;
 	myStatus: "kommer" | "kommer_ikke" | undefined;
+	myReason: string | undefined;
 }) {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
+	const [askingReason, setAskingReason] = useState(false);
 	const respond = useMutation(
 		trpc.events.respond.mutationOptions({
-			onSuccess: () =>
-				queryClient.invalidateQueries({ queryKey: trpc.events.pathKey() }),
+			onSuccess: () => {
+				queryClient.invalidateQueries({ queryKey: trpc.events.pathKey() });
+				setAskingReason(false);
+			},
 			onError: (error) => toast.error(error.message),
 		}),
 	);
@@ -107,11 +131,77 @@ export function AnswerButtons({
 				size="sm"
 				variant={myStatus === "kommer_ikke" ? "destructive" : "outline"}
 				disabled={respond.isPending}
-				onClick={() => respond.mutate({ eventId, status: "kommer_ikke" })}
+				onClick={() => setAskingReason(true)}
 			>
 				<XIcon />
 				Kommer ikke
 			</Button>
+			{askingReason && (
+				<AbsenceDialog
+					initialReason={myReason ?? ""}
+					pending={respond.isPending}
+					onSubmit={(reason) =>
+						respond.mutate({ eventId, status: "kommer_ikke", reason })
+					}
+					onClose={() => setAskingReason(false)}
+				/>
+			)}
 		</div>
+	);
+}
+
+function AbsenceDialog({
+	initialReason,
+	pending,
+	onSubmit,
+	onClose,
+}: {
+	initialReason: string;
+	pending: boolean;
+	onSubmit: (reason: string) => void;
+	onClose: () => void;
+}) {
+	const [reason, setReason] = useState(initialReason);
+	const valid = reason.trim().length > 0;
+
+	return (
+		<Dialog open onOpenChange={(open) => !open && onClose()}>
+			<DialogContent>
+				<form
+					className="grid gap-4"
+					onSubmit={(e) => {
+						e.preventDefault();
+						if (valid) onSubmit(reason.trim());
+					}}
+				>
+					<DialogHeader>
+						<DialogTitle>Hvorfor kan du ikke komme?</DialogTitle>
+						<DialogDescription>
+							Begrunnelsen vises for alle som ser arrangementet.
+						</DialogDescription>
+					</DialogHeader>
+					<Textarea
+						aria-label="Begrunnelse"
+						rows={3}
+						maxLength={300}
+						placeholder="F.eks. syk, eksamen, jobb …"
+						value={reason}
+						onChange={(e) => setReason(e.target.value)}
+					/>
+					<DialogFooter>
+						<Button type="button" variant="outline" onClick={onClose}>
+							Avbryt
+						</Button>
+						<Button
+							type="submit"
+							variant="destructive"
+							disabled={!valid || pending}
+						>
+							Meld avbud
+						</Button>
+					</DialogFooter>
+				</form>
+			</DialogContent>
+		</Dialog>
 	);
 }
