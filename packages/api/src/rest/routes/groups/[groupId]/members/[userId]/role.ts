@@ -8,7 +8,7 @@ import {
 import { prisma } from "../../../../../server/prisma";
 import type { Role } from "../../../../../types";
 
-const ROLES: Role[] = ["admin", "subadmin", "member"];
+const ROLES: Role[] = ["admin", "index", "subadmin", "botsjef", "member"];
 
 /**
  * (Admin) Endre rollen til et medlem. Subadmin kan se roller, men ikke endre dem.
@@ -20,6 +20,14 @@ export const PUT = handler<{ groupId: string; userId: string }>(
 		await requireAdminOrParent(userId, groupId);
 		const { role } = await readJson<{ role: Role }>(request);
 		if (!ROLES.includes(role)) throw new HttpError(400, "Ugyldig rolle");
+		if (role === "botsjef") {
+			// Bøtene hører til hovedgruppen, så det er bare der rollen gir mening.
+			const group = await prisma.group.findUniqueOrThrow({
+				where: { id: groupId },
+			});
+			if (group.parentId)
+				throw new HttpError(400, "Botsjef settes i hovedgruppen");
+		}
 
 		const membership = await prisma.membership.findUnique({
 			where: { userId_groupId: { userId: memberId, groupId } },

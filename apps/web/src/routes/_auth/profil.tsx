@@ -32,7 +32,9 @@ export const Route = createFileRoute("/_auth/profil")({
 const ROLE_LABEL: Record<Role, string> = {
 	admin: "Admin",
 	subadmin: "Subadmin",
+	botsjef: "Botsjef",
 	member: "Medlem",
+	index: "Index",
 };
 
 /** Profilen: hvem du er, gruppene dine, varsler, kalender, utseende og utlogging. */
@@ -108,11 +110,13 @@ function ProfileComponent() {
 								>
 									<GroupAvatar group={group} size={32} />
 									<span className="flex-1 font-medium">{group.name}</span>
-									{group.myRole && group.myRole !== "member" && (
-										<Badge variant="secondary">
-											{ROLE_LABEL[group.myRole]}
-										</Badge>
-									)}
+									{group.myRole &&
+										group.myRole !== "member" &&
+										group.myRole !== "index" && (
+											<Badge variant="secondary">
+												{ROLE_LABEL[group.myRole]}
+											</Badge>
+										)}
 								</Link>
 							))}
 						</div>

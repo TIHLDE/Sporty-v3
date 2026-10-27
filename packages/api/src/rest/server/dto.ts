@@ -3,7 +3,7 @@
 import type { Prisma } from "@sporty/db";
 
 import type * as Dto from "../types";
-import { isManager } from "./http";
+import { canGiveCollectiveFine, isManager } from "./http";
 import { prisma } from "./prisma";
 
 export function toGroup(
@@ -107,10 +107,10 @@ export function toEvent(event: EventRow, userId: string): Dto.Event {
 			.map((m) => m.userId),
 		// Sub-/admin i hovedgruppen kan også styre arrangementer i undergruppene.
 		canManage: isManager(myRole) || isManager(parentRole),
-		// Bøter gis alltid i hovedgruppen, så det er rollen der som avgjør.
+		// Bøter gis alltid i hovedgruppen, så det er rollen der som avgjør (sub-/admin eller botsjef).
 		canGiveFines: event.group.parentId
-			? isManager(parentRole)
-			: isManager(myRole),
+			? canGiveCollectiveFine(parentRole)
+			: canGiveCollectiveFine(myRole),
 		collectiveFineGiven: event.collectiveFineAt !== null,
 	};
 }

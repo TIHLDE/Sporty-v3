@@ -504,7 +504,7 @@ const groupAdminRouter = router({
 			z.object({
 				groupId: id,
 				userId: id,
-				role: z.enum(["admin", "subadmin", "member"]),
+				role: z.enum(["admin", "index", "subadmin", "botsjef", "member"]),
 			}),
 		)
 		.mutation(({ ctx, input }) =>

@@ -212,8 +212,16 @@ export async function getRole(
 	return membership?.role ?? null;
 }
 
+/** Admin, eller Index som har samme tilgang. */
+export const isAdmin = (role: Role | null) =>
+	role === "admin" || role === "index";
+
 export const isManager = (role: Role | null) =>
-	role === "admin" || role === "subadmin";
+	isAdmin(role) || role === "subadmin";
+
+/** Sub-/admin og botsjef kan gi fellesbot. Rollen gjelder i hovedgruppen, der bøtene hører til. */
+export const canGiveCollectiveFine = (role: Role | null) =>
+	isManager(role) || role === "botsjef";
 
 export async function requireMember(userId: string, groupId: string) {
 	const role = await getRole(userId, groupId);
@@ -233,6 +241,15 @@ export async function requireAccess(userId: string, groupId: string) {
 		throw new HttpError(403, "Du har ikke tilgang til gruppen");
 	}
 	return { role, parentId: group.parentId };
+}
+
+/** Krever sub-/admin eller botsjef i gruppen (hovedgruppen, der bøtene hører til). */
+export async function requireCollectiveFineGiver(
+	userId: string,
+	groupId: string,
+) {
+	if (!canGiveCollectiveFine(await getRole(userId, groupId)))
+		throw new HttpError(403, "Krever sub-/admin eller botsjef i gruppen");
 }
 
 export async function requireManager(userId: string, groupId: string) {
@@ -274,9 +291,8 @@ export async function requireAdminOrParent(userId: string, groupId: string) {
 		select: { parentId: true },
 	});
 	if (!group) throw new HttpError(404, "Fant ikke gruppen");
-	if ((await getRole(userId, groupId)) === "admin") return;
-	if (group.parentId && (await getRole(userId, group.parentId)) === "admin")
-		return;
+	if (isAdmin(await getRole(userId, groupId))) return;
+	if (group.parentId && isAdmin(await getRole(userId, group.parentId))) return;
 	throw new HttpError(403, "Krever admin i gruppen");
 }
 

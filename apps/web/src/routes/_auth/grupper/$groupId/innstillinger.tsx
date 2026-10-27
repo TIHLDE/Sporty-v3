@@ -57,7 +57,9 @@ export const Route = createFileRoute("/_auth/grupper/$groupId/innstillinger")({
 const ROLE_LABEL: Record<Role, string> = {
 	admin: "Admin",
 	subadmin: "Subadmin",
+	botsjef: "Botsjef",
 	member: "Medlem",
+	index: "Index",
 };
 const NO_POSITION = "__none__";
 
@@ -288,11 +290,14 @@ function MembersSection({ group }: { group: GroupDetails }) {
 											<SelectValue>{ROLE_LABEL[member.role]}</SelectValue>
 										</SelectTrigger>
 										<SelectContent>
-											{(Object.keys(ROLE_LABEL) as Role[]).map((role) => (
-												<SelectItem key={role} value={role}>
-													{ROLE_LABEL[role]}
-												</SelectItem>
-											))}
+											{(Object.keys(ROLE_LABEL) as Role[])
+												// Botsjef gir fellesbot, og bøtene hører til hovedgruppen.
+												.filter((role) => role !== "botsjef" || !group.parentId)
+												.map((role) => (
+													<SelectItem key={role} value={role}>
+														{ROLE_LABEL[role]}
+													</SelectItem>
+												))}
 										</SelectContent>
 									</Select>
 								) : (
