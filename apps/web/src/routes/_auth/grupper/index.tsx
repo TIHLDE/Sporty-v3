@@ -12,6 +12,7 @@ export const Route = createFileRoute("/_auth/grupper/")({
 const ROLE_LABEL = {
 	admin: "Admin",
 	subadmin: "Subadmin",
+	botsjef: "Botsjef",
 	member: "Medlem",
 } as const;
 

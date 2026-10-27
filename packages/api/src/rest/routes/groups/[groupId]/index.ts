@@ -18,7 +18,7 @@ import {
 import { prisma } from "../../../server/prisma";
 import type { GroupDetails, UpdateGroupInput } from "../../../types";
 
-const ROLE_ORDER = { admin: 0, subadmin: 1, member: 2 };
+const ROLE_ORDER = { admin: 0, subadmin: 1, botsjef: 2, member: 3 };
 
 export const GET = handler<{ groupId: string }>(
 	async (request, { groupId }): Promise<GroupDetails> => {

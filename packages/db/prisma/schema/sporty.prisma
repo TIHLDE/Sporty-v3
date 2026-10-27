@@ -4,6 +4,8 @@
 enum Role {
   admin
   subadmin
+  /// Vanlig medlem som i tillegg kan gi fellesbot. Settes i hovedgruppen, der bøtene hører til.
+  botsjef
   member
 }
 

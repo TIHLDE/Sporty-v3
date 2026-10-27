@@ -32,6 +32,7 @@ export const Route = createFileRoute("/_auth/profil")({
 const ROLE_LABEL: Record<Role, string> = {
 	admin: "Admin",
 	subadmin: "Subadmin",
+	botsjef: "Botsjef",
 	member: "Medlem",
 };
 

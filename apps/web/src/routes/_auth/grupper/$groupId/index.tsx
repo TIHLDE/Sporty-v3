@@ -51,9 +51,10 @@ export const Route = createFileRoute("/_auth/grupper/$groupId/")({
 const ROLE_LABEL = {
 	admin: "Admin",
 	subadmin: "Subadmin",
+	botsjef: "Botsjef",
 	member: "Medlem",
 } as const;
-const ROLE_ORDER = { admin: 0, subadmin: 1, member: 2 } as const;
+const ROLE_ORDER = { admin: 0, subadmin: 1, botsjef: 2, member: 3 } as const;
 
 function GroupComponent() {
 	const { groupId } = Route.useParams();

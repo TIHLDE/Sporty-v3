@@ -1,7 +1,8 @@
 // Formen på dataene API-et sender til appen (DTO-er). Datamodellen i databasen ligger i
 // prisma/schema.prisma. Datoer er ISO-strenger, slik de kommer over nettverket.
 
-export type Role = "admin" | "subadmin" | "member";
+/** `botsjef` er et vanlig medlem som i tillegg kan gi fellesbot (settes i hovedgruppen). */
+export type Role = "admin" | "subadmin" | "botsjef" | "member";
 
 /** En posisjon i en gruppe, f.eks. Keeper eller Kant. Hver gruppe har sin egen liste. */
 export interface GroupPosition {
