@@ -42,6 +42,7 @@ import { PageState } from "@/components/page-state";
 import {
 	ChoosePositionPrompt,
 	ParticipantsByPosition,
+	eventPositions,
 } from "@/components/positions";
 import {
 	answeringClosed,
@@ -169,8 +170,8 @@ function EventView({ event }: { event: Event }) {
 			{myId &&
 				isMember &&
 				!isPast &&
-				group.data?.usesPositions &&
-				group.data.positions.length > 0 &&
+				group.data &&
+				eventPositions(event, group.data).length > 0 &&
 				!group.data.members.find((m) => m.user.id === myId)?.position && (
 					<ChoosePositionPrompt group={group.data} myId={myId} />
 				)}
@@ -181,7 +182,7 @@ function EventView({ event }: { event: Event }) {
 			{event.description && <Markdown>{event.description}</Markdown>}
 
 			<div className="grid gap-4 sm:grid-cols-3">
-				{group.data?.usesPositions && group.data.positions.length > 0 ? (
+				{group.data && eventPositions(event, group.data).length > 0 ? (
 					<ParticipantsByPosition
 						title="Kommer"
 						ids={kommer}

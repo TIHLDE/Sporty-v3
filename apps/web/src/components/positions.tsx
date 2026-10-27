@@ -1,9 +1,18 @@
-import type { GroupDetails } from "@sporty/api/rest/types";
+import type { Event, GroupDetails } from "@sporty/api/rest/types";
 import { Button } from "@sporty/ui/components/button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { useTRPC } from "@/utils/trpc";
+
+/** Posisjoner vises bare på kamper og treninger, og bare i grupper som bruker posisjoner. */
+export function eventPositions(
+	event: Pick<Event, "type">,
+	group: GroupDetails | undefined,
+) {
+	const relevant = event.type === "kamp" || event.type === "trening";
+	return relevant && group?.usesPositions ? group.positions : [];
+}
 
 /**
  * «Kommer» delt inn etter posisjon i gruppen, i gruppens rekkefølge (f.eks. Keeper, Forsvar …),
