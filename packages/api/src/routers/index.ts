@@ -517,6 +517,7 @@ const groupAdminRouter = router({
 				},
 			),
 		),
+	/** Sub-/admin setter posisjonen til hvem som helst; medlemmet kan sette sin egen. */
 	setPosition: protectedProcedure
 		.input(z.object({ groupId: id, userId: id, positionId: id.nullable() }))
 		.mutation(({ ctx, input }) =>

@@ -40,6 +40,10 @@ import { AnswerButtons } from "@/components/event-card";
 import { Markdown } from "@/components/markdown";
 import { PageState } from "@/components/page-state";
 import {
+	ChoosePositionPrompt,
+	ParticipantsByPosition,
+} from "@/components/positions";
+import {
 	answeringClosed,
 	EVENT_TYPE_LABEL,
 	locationLabel,
@@ -162,13 +166,30 @@ function EventView({ event }: { event: Event }) {
 				</p>
 			)}
 
+			{myId &&
+				isMember &&
+				!isPast &&
+				group.data?.usesPositions &&
+				group.data.positions.length > 0 &&
+				!group.data.members.find((m) => m.user.id === myId)?.position && (
+					<ChoosePositionPrompt group={group.data} myId={myId} />
+				)}
+
 			{event.type === "kamp" && started && (
 				<MatchFacts event={event} group={group.data} />
 			)}
 			{event.description && <Markdown>{event.description}</Markdown>}
 
 			<div className="grid gap-4 sm:grid-cols-3">
-				<Participants title="Kommer" ids={kommer} group={group.data} />
+				{group.data?.usesPositions && group.data.positions.length > 0 ? (
+					<ParticipantsByPosition
+						title="Kommer"
+						ids={kommer}
+						group={group.data}
+					/>
+				) : (
+					<Participants title="Kommer" ids={kommer} group={group.data} />
+				)}
 				<Participants
 					title="Kommer ikke"
 					ids={kommerIkke}
