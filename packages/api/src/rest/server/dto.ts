@@ -89,6 +89,7 @@ export function toEvent(event: EventRow, userId: string): Dto.Event {
 		start: event.startsAt.toISOString(),
 		end: event.endsAt?.toISOString() ?? null,
 		signupDeadline: event.signupDeadline?.toISOString() ?? null,
+		maxAttendees: event.maxAttendees,
 		ourScore: event.ourScore,
 		theirScore: event.theirScore,
 		attendance: Object.fromEntries(

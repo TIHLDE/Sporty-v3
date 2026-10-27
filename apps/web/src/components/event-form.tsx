@@ -75,6 +75,12 @@ export function EventForm({
 		editing ? { ...editing.location, id: null } : null,
 	);
 	const [description, setDescription] = useState(editing?.description ?? "");
+	const [limitAttendees, setLimitAttendees] = useState(
+		Boolean(editing?.maxAttendees),
+	);
+	const [maxAttendees, setMaxAttendees] = useState(
+		String(editing?.maxAttendees ?? 20),
+	);
 
 	const endError =
 		end && start && end <= start ? "Sluttid må være etter starttid" : null;
@@ -82,8 +88,18 @@ export function EventForm({
 		deadline && start && deadline > start
 			? "Fristen må være før arrangementet starter"
 			: null;
+	const maxAttendeesError =
+		limitAttendees &&
+		!(Number.isInteger(Number(maxAttendees)) && Number(maxAttendees) > 0)
+			? "Skriv et helt tall over 0"
+			: null;
 	const valid = Boolean(
-		title.trim() && start && place && !endError && !deadlineError,
+		title.trim() &&
+		start &&
+		place &&
+		!endError &&
+		!deadlineError &&
+		!maxAttendeesError,
 	);
 
 	/** Flytt sluttiden med, så varigheten beholdes. */
@@ -104,6 +120,7 @@ export function EventForm({
 			start: toIso(start),
 			end: end ? toIso(end) : null,
 			signupDeadline: deadline ? toIso(deadline) : null,
+			maxAttendees: limitAttendees ? Number(maxAttendees) : null,
 			location: {
 				name: place.name,
 				address: place.address,
@@ -226,6 +243,26 @@ export function EventForm({
 					max={start}
 					onChange={(e) => setDeadline(e.target.value)}
 				/>
+			</OptionalField>
+
+			<OptionalField
+				label="Maks antall deltakere"
+				enabled={limitAttendees}
+				onToggle={setLimitAttendees}
+				error={maxAttendeesError}
+			>
+				<Input
+					aria-label="Maks antall deltakere"
+					type="number"
+					inputMode="numeric"
+					min={1}
+					step={1}
+					value={maxAttendees}
+					onChange={(e) => setMaxAttendees(e.target.value)}
+				/>
+				<p className="text-sm text-muted-foreground">
+					Når så mange har svart «Kommer», kan ingen flere melde seg på.
+				</p>
 			</OptionalField>
 
 			<Button type="submit" size="lg" disabled={!valid || busy}>

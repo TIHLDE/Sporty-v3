@@ -40,6 +40,17 @@ export const PUT = handler<{ eventId: string }>(
 		if (event.signupDeadline && event.signupDeadline < now) {
 			throw new HttpError(400, "Påmeldingsfristen har gått ut");
 		}
+		// Fullt: ingen nye kan melde seg på, men de som allerede kommer kan svare på nytt.
+		if (status === "kommer" && event.maxAttendees !== null) {
+			const [coming, mine] = await Promise.all([
+				prisma.attendance.count({ where: { eventId, status: "kommer" } }),
+				prisma.attendance.findUnique({
+					where: { eventId_userId: { eventId, userId } },
+				}),
+			]);
+			if (mine?.status !== "kommer" && coming >= event.maxAttendees)
+				throw new HttpError(400, "Arrangementet er fullt");
+		}
 
 		await prisma.attendance.upsert({
 			where: { eventId_userId: { eventId, userId } },

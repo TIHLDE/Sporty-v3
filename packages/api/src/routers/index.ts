@@ -56,6 +56,7 @@ const eventInput = z.object({
 	}),
 	description: z.string(),
 	signupDeadline: z.string().nullable(),
+	maxAttendees: z.number().int().positive().nullable().optional(),
 });
 const score = z.number().int().min(0).max(99).nullable();
 
