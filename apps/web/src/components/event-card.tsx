@@ -22,6 +22,10 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import {
+	CollectiveFineButton,
+	canGiveCollectiveFine,
+} from "@/components/collective-fine-button";
+import {
 	answeringClosed,
 	EVENT_TYPE_LABEL,
 	locationLabel,
@@ -29,7 +33,10 @@ import {
 } from "@/lib/events";
 import { useTRPC } from "@/utils/trpc";
 
-/** Et arrangement i en liste: dato, tittel, tid, sted, hvor mange som kommer, og ditt svar. */
+/**
+ * Et arrangement i en liste: dato, tittel, tid, sted, hvor mange som kommer, og ditt svar.
+ * Sub-/admin får «Gi fellesbot» nederst når det kan gis.
+ */
 export function EventCard({
 	event,
 	showGroup = false,
@@ -40,7 +47,7 @@ export function EventCard({
 	const trpc = useTRPC();
 	const me = useQuery(trpc.me.queryOptions());
 	const myId = me.data?.id;
-	const { kommer, kommerIkke } = summarize(event);
+	const { kommer, kommerIkke, ubesvart } = summarize(event);
 	const myStatus = myId ? event.attendance[myId] : undefined;
 	const canAnswer =
 		Boolean(myId && event.memberIds.includes(myId)) && !answeringClosed(event);
@@ -78,6 +85,13 @@ export function EventCard({
 				<p className="text-xs text-muted-foreground">
 					{kommer.length} kommer · {kommerIkke.length} kommer ikke
 				</p>
+				{canGiveCollectiveFine(event, ubesvart.length) && (
+					<CollectiveFineButton
+						eventId={event.id}
+						count={ubesvart.length}
+						className="mt-1"
+					/>
+				)}
 			</div>
 			{canAnswer && (
 				<AnswerButtons

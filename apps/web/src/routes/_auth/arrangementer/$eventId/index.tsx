@@ -28,7 +28,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
 	ArrowLeftIcon,
 	ClockIcon,
-	GavelIcon,
 	MapPinIcon,
 	PencilIcon,
 	Trash2Icon,
@@ -36,6 +35,10 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 
+import {
+	CollectiveFineButton,
+	canGiveCollectiveFine,
+} from "@/components/collective-fine-button";
 import { AnswerButtons } from "@/components/event-card";
 import { Markdown } from "@/components/markdown";
 import { PageState } from "@/components/page-state";
@@ -178,12 +181,9 @@ function EventView({ event }: { event: Event }) {
 				<Participants title="Ikke svart" ids={ubesvart} group={group.data} />
 			</div>
 
-			{event.canGiveFines &&
-				closed &&
-				ubesvart.length > 0 &&
-				!event.collectiveFineGiven && (
-					<CollectiveFineButton eventId={event.id} count={ubesvart.length} />
-				)}
+			{canGiveCollectiveFine(event, ubesvart.length) && (
+				<CollectiveFineButton eventId={event.id} count={ubesvart.length} />
+			)}
 		</div>
 	);
 }
@@ -537,45 +537,5 @@ function ScoreField({
 				}
 			/>
 		</div>
-	);
-}
-
-/** (Sub-/admin) Én bot til alle som ikke har svart. Kan bare gis én gang. */
-function CollectiveFineButton({
-	eventId,
-	count,
-}: {
-	eventId: string;
-	count: number;
-}) {
-	const trpc = useTRPC();
-	const queryClient = useQueryClient();
-	const collectiveFine = useMutation(
-		trpc.events.collectiveFine.mutationOptions({
-			onSuccess: ({ count: given }) => {
-				queryClient.invalidateQueries({ queryKey: trpc.events.pathKey() });
-				queryClient.invalidateQueries({ queryKey: trpc.fines.pathKey() });
-				toast.success(
-					`Fellesbot gitt: ${given} ${given === 1 ? "medlem" : "medlemmer"} fikk 1 bot.`,
-				);
-			},
-			onError: (error) => toast.error(error.message),
-		}),
-	);
-
-	return (
-		<Button
-			variant="outline"
-			className="justify-self-start border-destructive text-destructive"
-			disabled={collectiveFine.isPending}
-			onClick={() =>
-				window.confirm(
-					`Gi fellesbot? ${count} medlemmer som ikke har svart får 1 bot hver.`,
-				) && collectiveFine.mutate({ eventId })
-			}
-		>
-			<GavelIcon />
-			Gi fellesbot ({count})
-		</Button>
 	);
 }
