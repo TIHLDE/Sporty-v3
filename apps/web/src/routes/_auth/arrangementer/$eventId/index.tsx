@@ -136,6 +136,7 @@ function EventView({ event }: { event: Event }) {
 						<AnswerButtons
 							eventId={event.id}
 							myStatus={myId ? event.attendance[myId] : undefined}
+							myReason={myId ? event.absenceReasons[myId] : undefined}
 						/>
 					)}
 				</div>
@@ -155,7 +156,12 @@ function EventView({ event }: { event: Event }) {
 
 			<div className="grid gap-4 sm:grid-cols-3">
 				<Participants title="Kommer" ids={kommer} group={group.data} />
-				<Participants title="Kommer ikke" ids={kommerIkke} group={group.data} />
+				<Participants
+					title="Kommer ikke"
+					ids={kommerIkke}
+					group={group.data}
+					reasons={event.absenceReasons}
+				/>
 				<Participants title="Ikke svart" ids={ubesvart} group={group.data} />
 			</div>
 
@@ -169,21 +175,24 @@ function EventView({ event }: { event: Event }) {
 	);
 }
 
+/** `reasons` brukes for «Kommer ikke»: begrunnelsen vises under navnet. */
 function Participants({
 	title,
 	ids,
 	group,
+	reasons,
 }: {
 	title: string;
 	ids: string[];
 	group: GroupDetails | undefined;
+	reasons?: Record<string, string>;
 }) {
 	const names = new Map(
 		group?.members.map((m) => [m.user.id, m.user.name]) ?? [],
 	);
 	const sorted = ids
-		.map((id) => names.get(id) ?? "Ukjent")
-		.sort((a, b) => a.localeCompare(b));
+		.map((id) => ({ name: names.get(id) ?? "Ukjent", reason: reasons?.[id] }))
+		.sort((a, b) => a.name.localeCompare(b.name));
 
 	return (
 		<section className="rounded-xl border p-4">
@@ -194,8 +203,15 @@ function Participants({
 				<p className="text-sm text-muted-foreground">Ingen</p>
 			) : (
 				<ul className="grid gap-1 text-sm">
-					{sorted.map((name, index) => (
-						<li key={`${name}-${index}`}>{name}</li>
+					{sorted.map(({ name, reason }, index) => (
+						<li key={`${name}-${index}`}>
+							{name}
+							{reason && (
+								<span className="block text-xs text-muted-foreground">
+									{reason}
+								</span>
+							)}
+						</li>
 					))}
 				</ul>
 			)}

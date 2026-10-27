@@ -154,8 +154,15 @@ const eventsRouter = router({
 				`/events/${enc(input.eventId)}/collective-fine`,
 			),
 		),
+	/** «Kommer ikke» krever `reason`. */
 	respond: protectedProcedure
-		.input(z.object({ eventId: id, status: z.enum(["kommer", "kommer_ikke"]) }))
+		.input(
+			z.object({
+				eventId: id,
+				status: z.enum(["kommer", "kommer_ikke"]),
+				reason: z.string().optional(),
+			}),
+		)
 		.mutation(({ ctx, input }) =>
 			restCall<Dto.Event>(
 				ctx,
@@ -163,6 +170,7 @@ const eventsRouter = router({
 				`/events/${enc(input.eventId)}/attendance`,
 				{
 					status: input.status,
+					reason: input.reason,
 				},
 			),
 		),

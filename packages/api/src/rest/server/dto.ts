@@ -47,7 +47,7 @@ export const eventInclude = {
 			},
 		},
 	},
-	attendances: { select: { userId: true, status: true } },
+	attendances: { select: { userId: true, status: true, reason: true } },
 } satisfies Prisma.EventInclude;
 
 type EventRow = Prisma.EventGetPayload<{ include: typeof eventInclude }>;
@@ -93,6 +93,11 @@ export function toEvent(event: EventRow, userId: string): Dto.Event {
 		theirScore: event.theirScore,
 		attendance: Object.fromEntries(
 			event.attendances.map((a) => [a.userId, a.status]),
+		),
+		absenceReasons: Object.fromEntries(
+			event.attendances
+				.filter((a) => a.status === "kommer_ikke")
+				.map((a) => [a.userId, a.reason]),
 		),
 		// Inaktive medlemmer forventes ikke å svare: de står ikke under «Ikke svart», får ikke
 		// påminnelser om svarfristen og får ikke fellesbot.
