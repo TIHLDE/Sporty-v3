@@ -25,6 +25,7 @@ import {
 	CollectiveFineButton,
 	canGiveCollectiveFine,
 } from "@/components/collective-fine-button";
+import { GroupAvatar } from "@/components/group-avatar";
 import {
 	answeringClosed,
 	EVENT_TYPE_LABEL,
@@ -53,7 +54,11 @@ export function EventCard({
 		Boolean(myId && event.memberIds.includes(myId)) && !answeringClosed(event);
 
 	return (
-		<div className="flex gap-4 rounded-xl border p-4">
+		// Stripen i gruppefargen viser hvilken gruppe arrangementet hører til.
+		<div
+			className="flex gap-4 rounded-xl border border-l-4 p-4"
+			style={{ borderLeftColor: event.groupColor }}
+		>
 			<div className="flex w-12 shrink-0 flex-col items-center rounded-lg bg-muted py-1.5">
 				<span className="text-xs font-medium text-muted-foreground">
 					{formatMonthShort(event.start)}
@@ -63,6 +68,19 @@ export function EventCard({
 				</span>
 			</div>
 			<div className="grid min-w-0 flex-1 gap-1">
+				{showGroup && (
+					<div className="flex min-w-0 items-center gap-1.5 text-xs font-semibold italic">
+						<GroupAvatar
+							group={{
+								name: event.groupName,
+								color: event.groupColor,
+								logoUrl: event.groupLogoUrl,
+							}}
+							size={18}
+						/>
+						<span className="truncate">{event.groupName}</span>
+					</div>
+				)}
 				<div className="flex flex-wrap items-center gap-2">
 					<Link
 						to="/arrangementer/$eventId"
@@ -75,7 +93,6 @@ export function EventCard({
 					<Badge variant="outline">{EVENT_TYPE_LABEL[event.type]}</Badge>
 				</div>
 				<p className="text-sm text-muted-foreground">
-					{showGroup ? `${event.groupName} · ` : ""}
 					{formatEventRange(event.start, event.end)}
 				</p>
 				<p className="flex items-center gap-1 text-sm text-muted-foreground">
