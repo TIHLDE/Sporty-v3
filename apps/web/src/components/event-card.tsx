@@ -22,6 +22,11 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import {
+	CollectiveFineButton,
+	canGiveCollectiveFine,
+} from "@/components/collective-fine-button";
+import { GroupAvatar } from "@/components/group-avatar";
+import {
 	answeringClosed,
 	EVENT_TYPE_LABEL,
 	locationLabel,
@@ -29,7 +34,10 @@ import {
 } from "@/lib/events";
 import { useTRPC } from "@/utils/trpc";
 
-/** Et arrangement i en liste: dato, tittel, tid, sted, hvor mange som kommer, og ditt svar. */
+/**
+ * Et arrangement i en liste: dato, tittel, tid, sted, hvor mange som kommer, og ditt svar.
+ * Sub-/admin får «Gi fellesbot» nederst når det kan gis.
+ */
 export function EventCard({
 	event,
 	showGroup = false,
@@ -40,13 +48,17 @@ export function EventCard({
 	const trpc = useTRPC();
 	const me = useQuery(trpc.me.queryOptions());
 	const myId = me.data?.id;
-	const { kommer, kommerIkke } = summarize(event);
+	const { kommer, kommerIkke, ubesvart } = summarize(event);
 	const myStatus = myId ? event.attendance[myId] : undefined;
 	const canAnswer =
 		Boolean(myId && event.memberIds.includes(myId)) && !answeringClosed(event);
 
 	return (
-		<div className="flex gap-4 rounded-xl border p-4">
+		// Stripen i gruppefargen viser hvilken gruppe arrangementet hører til.
+		<div
+			className="flex gap-4 rounded-xl border border-l-4 p-4"
+			style={{ borderLeftColor: event.groupColor }}
+		>
 			<div className="flex w-12 shrink-0 flex-col items-center rounded-lg bg-muted py-1.5">
 				<span className="text-xs font-medium text-muted-foreground">
 					{formatMonthShort(event.start)}
@@ -56,6 +68,19 @@ export function EventCard({
 				</span>
 			</div>
 			<div className="grid min-w-0 flex-1 gap-1">
+				{showGroup && (
+					<div className="flex min-w-0 items-center gap-1.5 text-xs font-semibold italic">
+						<GroupAvatar
+							group={{
+								name: event.groupName,
+								color: event.groupColor,
+								logoUrl: event.groupLogoUrl,
+							}}
+							size={18}
+						/>
+						<span className="truncate">{event.groupName}</span>
+					</div>
+				)}
 				<div className="flex flex-wrap items-center gap-2">
 					<Link
 						to="/arrangementer/$eventId"
@@ -68,7 +93,6 @@ export function EventCard({
 					<Badge variant="outline">{EVENT_TYPE_LABEL[event.type]}</Badge>
 				</div>
 				<p className="text-sm text-muted-foreground">
-					{showGroup ? `${event.groupName} · ` : ""}
 					{formatEventRange(event.start, event.end)}
 				</p>
 				<p className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -78,6 +102,13 @@ export function EventCard({
 				<p className="text-xs text-muted-foreground">
 					{kommer.length} kommer · {kommerIkke.length} kommer ikke
 				</p>
+				{canGiveCollectiveFine(event, ubesvart.length) && (
+					<CollectiveFineButton
+						eventId={event.id}
+						count={ubesvart.length}
+						className="mt-1"
+					/>
+				)}
 			</div>
 			{canAnswer && (
 				<AnswerButtons

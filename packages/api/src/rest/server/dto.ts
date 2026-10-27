@@ -38,6 +38,8 @@ export const eventInclude = {
 	group: {
 		select: {
 			name: true,
+			color: true,
+			logoUrl: true,
 			parentId: true,
 			memberships: {
 				select: { userId: true, role: true, inactiveSince: true },
@@ -76,6 +78,8 @@ export function toEvent(event: EventRow, userId: string): Dto.Event {
 		id: event.id,
 		groupId: event.groupId,
 		groupName: event.group.name,
+		groupColor: event.group.color,
+		groupLogoUrl: event.group.logoUrl,
 		title: event.title,
 		type: event.type,
 		opponent: event.opponent,

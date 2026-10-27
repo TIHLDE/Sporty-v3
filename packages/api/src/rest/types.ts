@@ -156,6 +156,9 @@ export interface Event {
 	id: string;
 	groupId: string;
 	groupName: string;
+	/** Gruppens farge og logo, så man ser hvilken gruppe arrangementet hører til. */
+	groupColor: string;
+	groupLogoUrl: string | null;
 	title: string;
 	type: EventType;
 	/** Laget man spiller mot. Bare for kamper. */
