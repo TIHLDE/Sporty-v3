@@ -59,6 +59,7 @@ const ROLE_LABEL: Record<Role, string> = {
 	subadmin: "Subadmin",
 	botsjef: "Botsjef",
 	member: "Medlem",
+	index: "Index",
 };
 const NO_POSITION = "__none__";
 

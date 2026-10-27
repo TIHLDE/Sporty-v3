@@ -212,8 +212,12 @@ export async function getRole(
 	return membership?.role ?? null;
 }
 
+/** Admin, eller Index som har samme tilgang. */
+export const isAdmin = (role: Role | null) =>
+	role === "admin" || role === "index";
+
 export const isManager = (role: Role | null) =>
-	role === "admin" || role === "subadmin";
+	isAdmin(role) || role === "subadmin";
 
 /** Sub-/admin og botsjef kan gi fellesbot. Rollen gjelder i hovedgruppen, der bøtene hører til. */
 export const canGiveCollectiveFine = (role: Role | null) =>
@@ -287,9 +291,8 @@ export async function requireAdminOrParent(userId: string, groupId: string) {
 		select: { parentId: true },
 	});
 	if (!group) throw new HttpError(404, "Fant ikke gruppen");
-	if ((await getRole(userId, groupId)) === "admin") return;
-	if (group.parentId && (await getRole(userId, group.parentId)) === "admin")
-		return;
+	if (isAdmin(await getRole(userId, groupId))) return;
+	if (group.parentId && isAdmin(await getRole(userId, group.parentId))) return;
 	throw new HttpError(403, "Krever admin i gruppen");
 }
 

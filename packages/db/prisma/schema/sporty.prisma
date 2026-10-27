@@ -3,6 +3,8 @@
 
 enum Role {
   admin
+  /// Full admin-tilgang for Index (de som drifter Sporty). Vises ikke som eget merke.
+  index
   subadmin
   /// Vanlig medlem som i tillegg kan gi fellesbot. Settes i hovedgruppen, der bøtene hører til.
   botsjef

@@ -14,6 +14,7 @@ const ROLE_LABEL = {
 	subadmin: "Subadmin",
 	botsjef: "Botsjef",
 	member: "Medlem",
+	index: "Index",
 } as const;
 
 /** Lagene du er med i. Idrettslagene hentes fra tihlde.org. */
@@ -43,7 +44,7 @@ function GroupsComponent() {
 									<GroupAvatar group={group} size={48} />
 									<div className="min-w-0">
 										<p className="truncate font-medium">{group.name}</p>
-										{group.myRole && (
+										{group.myRole && group.myRole !== "index" && (
 											<p className="text-sm text-muted-foreground">
 												{ROLE_LABEL[group.myRole]}
 											</p>

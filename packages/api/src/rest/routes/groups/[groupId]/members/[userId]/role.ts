@@ -8,7 +8,7 @@ import {
 import { prisma } from "../../../../../server/prisma";
 import type { Role } from "../../../../../types";
 
-const ROLES: Role[] = ["admin", "subadmin", "botsjef", "member"];
+const ROLES: Role[] = ["admin", "index", "subadmin", "botsjef", "member"];
 
 /**
  * (Admin) Endre rollen til et medlem. Subadmin kan se roller, men ikke endre dem.

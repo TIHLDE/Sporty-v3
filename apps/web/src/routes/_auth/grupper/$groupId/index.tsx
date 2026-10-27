@@ -53,8 +53,16 @@ const ROLE_LABEL = {
 	subadmin: "Subadmin",
 	botsjef: "Botsjef",
 	member: "Medlem",
+	index: "Index",
 } as const;
-const ROLE_ORDER = { admin: 0, subadmin: 1, botsjef: 2, member: 3 } as const;
+// Index sorteres og vises som et vanlig medlem, siden rollen ikke skal fremheves.
+const ROLE_ORDER = {
+	admin: 0,
+	subadmin: 1,
+	botsjef: 2,
+	member: 3,
+	index: 3,
+} as const;
 
 function GroupComponent() {
 	const { groupId } = Route.useParams();
@@ -377,7 +385,7 @@ function Members({ group }: { group: GroupDetails }) {
 							)}
 						</TableCell>
 						<TableCell>
-							{member.role === "member" ? (
+							{member.role === "member" || member.role === "index" ? (
 								<span className="text-muted-foreground">Medlem</span>
 							) : (
 								<Badge
