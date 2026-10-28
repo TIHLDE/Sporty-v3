@@ -36,6 +36,7 @@ import * as rMatchStatTypes from "./routes/groups/[groupId]/match-stat-types/ind
 import * as r0 from "./routes/groups/[groupId]/members/[userId]/inactive";
 import * as r1 from "./routes/groups/[groupId]/members/[userId]/position";
 import * as r2 from "./routes/groups/[groupId]/members/[userId]/role";
+import * as rMemberSubgroups from "./routes/groups/[groupId]/members/[userId]/subgroups";
 import * as r17 from "./routes/groups/[groupId]/members/index";
 import * as r18 from "./routes/groups/[groupId]/payments";
 import * as r19 from "./routes/groups/[groupId]/polls";
@@ -69,6 +70,10 @@ export const routes = [
 	{ pattern: "/fines/:fineId/image", module: rFineImage },
 	{ pattern: "/groups/:groupId/members/:userId/inactive", module: r0 },
 	{ pattern: "/groups/:groupId/members/:userId/position", module: r1 },
+	{
+		pattern: "/groups/:groupId/members/:userId/subgroups",
+		module: rMemberSubgroups,
+	},
 	{ pattern: "/groups/:groupId/members/:userId/role", module: r2 },
 	{ pattern: "/groups/:groupId/export/attendance", module: r3 },
 	{ pattern: "/groups/:groupId/export/results", module: r4 },
