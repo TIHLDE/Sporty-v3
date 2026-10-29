@@ -37,6 +37,16 @@ const groupsRouter = router({
 				`/groups/${enc(input.groupId)}/files`,
 			),
 		),
+	/** Statistikk per semester («2026-H», «2026-V») eller «all». Uten periode: gjeldende semester. */
+	stats: protectedProcedure
+		.input(z.object({ groupId: id, period: z.string().nullish() }))
+		.query(({ ctx, input }) =>
+			restCall<Dto.GroupStats>(
+				ctx,
+				"GET",
+				`/groups/${enc(input.groupId)}/stats${query({ period: input.period ?? undefined })}`,
+			),
+		),
 	/** Hovedgrupper der brukeren kan gi bøter. */
 	finesGroups: protectedProcedure.query(({ ctx }) =>
 		restCall<Dto.Group[]>(ctx, "GET", "/groups/managed"),

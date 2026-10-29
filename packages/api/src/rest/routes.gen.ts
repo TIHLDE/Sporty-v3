@@ -42,6 +42,7 @@ import * as r18 from "./routes/groups/[groupId]/payments";
 import * as r19 from "./routes/groups/[groupId]/polls";
 import * as r5 from "./routes/groups/[groupId]/positions/[positionId]";
 import * as r20 from "./routes/groups/[groupId]/positions/index";
+import * as rGroupStats from "./routes/groups/[groupId]/stats";
 import * as r21 from "./routes/groups/[groupId]/subgroups";
 import * as r45 from "./routes/groups/index";
 import * as r28 from "./routes/groups/managed";
@@ -107,6 +108,7 @@ export const routes = [
 	{ pattern: "/groups/:groupId/payments", module: r18 },
 	{ pattern: "/groups/:groupId/polls", module: r19 },
 	{ pattern: "/groups/:groupId/positions", module: r20 },
+	{ pattern: "/groups/:groupId/stats", module: rGroupStats },
 	{ pattern: "/groups/:groupId/match-stat-types", module: rMatchStatTypes },
 	{ pattern: "/groups/:groupId/subgroups", module: r21 },
 	{ pattern: "/notifications/:notificationId/read", module: r22 },

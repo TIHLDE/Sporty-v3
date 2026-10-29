@@ -43,6 +43,7 @@ import { NotificationList } from "@/components/notifications";
 import { EmptyText, PageState } from "@/components/page-state";
 import { PaymentsTab } from "@/components/payments";
 import { PollsTab } from "@/components/polls";
+import { StatsTab } from "@/components/stats";
 import { eventTargets } from "@/lib/events";
 import { useTRPC } from "@/utils/trpc";
 
@@ -161,6 +162,7 @@ function GroupView({ group }: { group: GroupDetails }) {
 					<TabsTrigger value="avstemninger">Avstemninger</TabsTrigger>
 					<TabsTrigger value="betalinger">Betalinger</TabsTrigger>
 					<TabsTrigger value="filer">Filer</TabsTrigger>
+					<TabsTrigger value="statistikk">Statistikk</TabsTrigger>
 					<TabsTrigger value="varsler">Varsler</TabsTrigger>
 					<TabsTrigger value="medlemmer">
 						Medlemmer ({group.members.length})
@@ -185,6 +187,9 @@ function GroupView({ group }: { group: GroupDetails }) {
 				</TabsContent>
 				<TabsContent value="filer" className="pt-4">
 					<FilesTab groupId={group.id} />
+				</TabsContent>
+				<TabsContent value="statistikk" className="pt-4">
+					<StatsTab group={group} />
 				</TabsContent>
 				<TabsContent value="varsler" className="pt-4">
 					<NotificationList groupId={group.id} />
