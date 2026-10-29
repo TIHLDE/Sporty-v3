@@ -530,6 +530,17 @@ const groupAdminRouter = router({
 				},
 			),
 		),
+	/** (Admin) Hvilke undergrupper et medlem av hovedgruppen er med i. */
+	setSubgroups: protectedProcedure
+		.input(z.object({ groupId: id, userId: id, subgroupIds: z.array(id) }))
+		.mutation(({ ctx, input }) =>
+			restCall<{ subgroupIds: string[] }>(
+				ctx,
+				"PUT",
+				`/groups/${enc(input.groupId)}/members/${enc(input.userId)}/subgroups`,
+				{ subgroupIds: input.subgroupIds },
+			),
+		),
 	/** Gjør inaktiv med begrunnelse, eller aktiv igjen med null. */
 	setInactive: protectedProcedure
 		.input(z.object({ groupId: id, userId: id, reason: z.string().nullable() }))

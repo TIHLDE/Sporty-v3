@@ -81,6 +81,8 @@ export interface Member {
 	inactive: Inactivity | null;
 	/** Undergruppene medlemmet er med i, f.eks. ["Herrer 11'er"]. Tom i undergrupper. */
 	subgroupNames: string[];
+	/** Id-ene til de samme undergruppene, til redigering. */
+	subgroupIds: string[];
 }
 
 export interface GroupDetails extends Group {

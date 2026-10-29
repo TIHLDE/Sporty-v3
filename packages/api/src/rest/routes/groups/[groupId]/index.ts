@@ -81,6 +81,9 @@ export const GET = handler<{ groupId: string }>(
 					subgroupNames: group.subgroups
 						.filter((s) => s.memberships.some((sm) => sm.userId === m.userId))
 						.map((s) => s.name),
+					subgroupIds: group.subgroups
+						.filter((s) => s.memberships.some((sm) => sm.userId === m.userId))
+						.map((s) => s.id),
 				}))
 				.sort(
 					(a, b) =>
