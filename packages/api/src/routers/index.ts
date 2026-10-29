@@ -246,12 +246,14 @@ const finesRouter = router({
 				userIds: z.array(id).min(1),
 				count: z.number().int(),
 				reason: z.string(),
+				/** Fra POST /api/uploads. */
+				imageUploadId: id.nullish(),
 			}),
 		)
 		.mutation(({ ctx, input }) =>
 			restCall<{ count: number; duplicate?: boolean }>(ctx, "POST", "/fines", {
 				...input,
-				imageUri: null,
+				imageUploadId: input.imageUploadId ?? null,
 			}),
 		),
 	setStatus: protectedProcedure

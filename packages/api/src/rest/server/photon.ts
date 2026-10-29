@@ -225,15 +225,19 @@ async function photonRequest<T>(
 		url.searchParams.set(key, value);
 	let response: Response;
 	try {
+		// FormData (filopplasting) sendes som den er; fetch setter selv multipart-grensen.
+		const form = init.body instanceof FormData ? init.body : null;
 		response = await fetch(url, {
 			method: init.method ?? "GET",
 			headers: {
 				authorization: `Bearer ${accessToken}`,
-				...(init.body !== undefined
+				...(init.body !== undefined && !form
 					? { "content-type": "application/json" }
 					: {}),
 			},
-			body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+			body:
+				form ??
+				(init.body !== undefined ? JSON.stringify(init.body) : undefined),
 		});
 	} catch {
 		throw new HttpError(503, "Får ikke kontakt med tihlde.org");
@@ -376,11 +380,41 @@ export function listPhotonLaws(accessToken: string, slug: string) {
 	);
 }
 
+/**
+ * Laster opp et bilde til tihlde.org sitt lager som den innloggede brukeren, og gir lenken til det.
+ * Photon gjør det om til WebP selv. Det står «på vent» til en bot tar det i bruk (`image`), da
+ * gjøres det privat; ellers slettes det etter to dager.
+ */
+export async function uploadPhotonAsset(
+	accessToken: string,
+	file: { data: Uint8Array; fileName: string; mimeType: string },
+) {
+	const form = new FormData();
+	form.append(
+		"file",
+		new Blob([file.data as Uint8Array<ArrayBuffer>], { type: file.mimeType }),
+		file.fileName,
+	);
+	form.append("visibility", "private");
+	const { key } = await photonRequest<{ key: string }>(accessToken, "assets", {
+		method: "POST",
+		body: form,
+	});
+	return `${PHOTON_API_URL}/assets/${key}`;
+}
+
 /** Gir én person en bot. Den venter på godkjenning fra botsjefen eller lederen. */
 export function createPhotonFine(
 	accessToken: string,
 	slug: string,
-	fine: { userId: string; reason: string; amount: number; lawId?: string },
+	fine: {
+		userId: string;
+		reason: string;
+		amount: number;
+		lawId?: string;
+		/** Fra uploadPhotonAsset. Vises på boten på tihlde.org og i appen. */
+		image?: string;
+	},
 ) {
 	return photonRequest<{ id: string }>(
 		accessToken,
