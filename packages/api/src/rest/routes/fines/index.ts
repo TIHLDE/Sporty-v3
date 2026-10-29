@@ -15,9 +15,10 @@ import {
 	handler,
 	readJson,
 } from "../../server/http";
-import { createPhotonFine } from "../../server/photon";
+import { createPhotonFine, uploadPhotonAsset } from "../../server/photon";
 import { prisma } from "../../server/prisma";
 import { sendPush } from "../../server/push";
+import { readStoredFile } from "../../server/storage";
 import type { GiveFinesInput } from "../../types";
 
 const MAX_COUNT = 20;
@@ -59,6 +60,16 @@ export const POST = handler(async (request) => {
 	if (members.length !== input.userIds.length) {
 		throw new HttpError(400, "Alle må være medlem av gruppen");
 	}
+
+	// Bildet må være et bilde brukeren selv har lastet opp (POST /uploads).
+	const image = input.imageUploadId
+		? await prisma.upload.findUnique({ where: { id: input.imageUploadId } })
+		: null;
+	if (
+		input.imageUploadId &&
+		(!image || image.uploadedById !== userId || image.kind !== "image")
+	)
+		throw new HttpError(400, "Fant ikke bildet");
 	const inactive = await inactiveNames(input.userIds, [group.id]);
 	if (inactive.length > 0) {
 		throw new HttpError(
@@ -81,11 +92,21 @@ export const POST = handler(async (request) => {
 			for (const member of members) {
 				if (!member.user.photonId)
 					throw new HttpError(400, "Fant ikke personen på tihlde.org");
+				// Hver bot får sin egen kopi av bildet på tihlde.org: Photon sletter bildet når det
+				// fjernes fra en bot, og da skal det ikke forsvinne fra de andre.
+				const photonImage = image
+					? await uploadPhotonAsset(await accessToken(), {
+							data: await readStoredFile(image.id),
+							fileName: image.fileName,
+							mimeType: image.mimeType,
+						})
+					: undefined;
 				await createPhotonFine(await accessToken(), group.photonSlug, {
 					userId: member.user.photonId,
 					reason,
 					amount: input.count,
 					lawId: law.id,
+					image: photonImage,
 				});
 				given++;
 			}
@@ -98,7 +119,7 @@ export const POST = handler(async (request) => {
 					givenById: userId,
 					reason,
 					count: input.count,
-					imageUri: input.imageUri,
+					imageUri: image ? `/api/uploads/${image.id}` : null,
 				})),
 			});
 			given = input.userIds.length;

@@ -228,7 +228,8 @@ export function toFine(
 		givenByName: fine.givenBy.name,
 		reason: fine.reason,
 		count: fine.count,
-		imageUrl: fine.imageUri,
+		// Eldre bøter kan ha en lokal filsti fra telefonen (file://…), som ingen andre kan åpne.
+		imageUrl: fine.imageUri?.startsWith("/api/uploads/") ? fine.imageUri : null,
 		defense: null,
 		paid: fine.paid,
 		collective: fine.collective,
