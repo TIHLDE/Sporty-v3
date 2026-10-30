@@ -1,7 +1,7 @@
 // Formen på dataene API-et sender til appen (DTO-er). Datamodellen i databasen ligger i
 // prisma/schema.prisma. Datoer er ISO-strenger, slik de kommer over nettverket.
 
-export type Role = "admin" | "subadmin" | "member";
+export type Role = "admin" | "subadmin" | "botsjef" | "index" | "member";
 
 /** En posisjon i en gruppe, f.eks. Keeper eller Kant. Hver gruppe har sin egen liste. */
 export interface GroupPosition {
@@ -136,6 +136,8 @@ export interface GroupFinesInfo {
 	canGive: boolean;
 	/** Kan godkjenne, markere som betalt og avvise (botsjef og leder på tihlde.org). */
 	canSettle: boolean;
+	/** Kan bruke snitches (gi massebot til alle som ikke har snitchet): botsjef og sub-/admin. */
+	canSnitch: boolean;
 }
 
 export interface Location {

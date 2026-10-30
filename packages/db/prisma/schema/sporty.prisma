@@ -4,6 +4,8 @@
 enum Role {
   admin
   subadmin
+  botsjef
+  index
   member
 }
 

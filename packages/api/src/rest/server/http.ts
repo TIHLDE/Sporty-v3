@@ -213,7 +213,14 @@ export async function getRole(
 }
 
 export const isManager = (role: Role | null) =>
-	role === "admin" || role === "subadmin";
+	role === "admin" || role === "subadmin" || role === "index";
+
+/**
+ * Botroller: botsjef (i hovedgruppen) og rollene over har bot-rydderrettigheter: snitches,
+ * godkjenne/avvise bøter osv. Ikke samme som isManager (arrangementer, innstillinger, betalinger).
+ */
+export const isFineManager = (role: Role | null) =>
+	isManager(role) || role === "botsjef";
 
 export async function requireMember(userId: string, groupId: string) {
 	const role = await getRole(userId, groupId);

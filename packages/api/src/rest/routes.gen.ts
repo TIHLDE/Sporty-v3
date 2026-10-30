@@ -21,6 +21,7 @@ import * as r36 from "./routes/fines/[fineId]";
 import * as rFineImage from "./routes/fines/[fineId]/image";
 import * as r44 from "./routes/fines/index";
 import * as r27 from "./routes/fines/mine";
+import * as rSnitches from "./routes/fines/snitches";
 import * as r12 from "./routes/groups/[groupId]/announcements";
 import * as r13 from "./routes/groups/[groupId]/events";
 import * as r3 from "./routes/groups/[groupId]/export/attendance";
@@ -99,6 +100,7 @@ export const routes = [
 	{ pattern: "/polls/:pollId/vote", module: r25 },
 	{ pattern: "/conversations/direct", module: r26 },
 	{ pattern: "/fines/mine", module: r27 },
+	{ pattern: "/fines/snitches", module: rSnitches },
 	{ pattern: "/groups/managed", module: r28 },
 	{ pattern: "/me/settings", module: r29 },
 	{ pattern: "/notifications/read-all", module: r30 },
