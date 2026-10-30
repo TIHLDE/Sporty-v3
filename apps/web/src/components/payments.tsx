@@ -1,5 +1,10 @@
 import { formatEventStart } from "@sporty/api/rest/lib/dates";
-import type { GroupDetails, PaymentRequest } from "@sporty/api/rest/types";
+import type {
+	GroupDetails,
+	PaymentRequest,
+	PaymentStatus,
+	User,
+} from "@sporty/api/rest/types";
 import { Badge } from "@sporty/ui/components/badge";
 import { Button } from "@sporty/ui/components/button";
 import {
@@ -14,11 +19,12 @@ import { Input } from "@sporty/ui/components/input";
 import { Label } from "@sporty/ui/components/label";
 import { Textarea } from "@sporty/ui/components/textarea";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckIcon, PlusIcon } from "lucide-react";
+import { CheckIcon, ClockIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { EmptyText, PageState } from "@/components/page-state";
+import { UserAvatar } from "@/components/user-avatar";
 import { deadlineInDays, isPastInput } from "@/lib/datetime";
 import { useTRPC } from "@/utils/trpc";
 
@@ -30,7 +36,7 @@ const kroner = new Intl.NumberFormat("nb-NO", {
 
 /**
  * Betalingene i gruppen. Selve betalingen skjer i Vipps; medlemmene markerer selv at de har betalt,
- * og sub-/admin ser hvem som mangler.
+ * og sub-/admin sjekker Vipps og godkjenner eller avviser.
  */
 export function PaymentsTab({ group }: { group: GroupDetails }) {
 	const trpc = useTRPC();
@@ -81,11 +87,12 @@ function PaymentCard({
 }) {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
-	const me = useQuery(trpc.me.queryOptions());
-	const paid = Boolean(me.data && payment.paidUserIds.includes(me.data.id));
+	const [reviewing, setReviewing] = useState(false);
+	const { myStatus } = payment;
 	// Tidspunktet tas én gang når kortet vises (ikke ved hver tegning).
 	const [now] = useState(() => Date.now());
-	const overdue = !paid && new Date(payment.dueDate).getTime() < now;
+	const overdue =
+		myStatus !== "approved" && new Date(payment.dueDate).getTime() < now;
 	const setPaid = useMutation(
 		trpc.payments.setPaid.mutationOptions({
 			onSuccess: () =>
@@ -93,10 +100,6 @@ function PaymentCard({
 			onError: (error) => toast.error(error.message),
 		}),
 	);
-	const unpaidNames = group.members
-		.filter((m) => !payment.paidUserIds.includes(m.user.id))
-		.map((m) => m.user.name)
-		.sort((a, b) => a.localeCompare(b));
 
 	return (
 		<div className="grid gap-3 rounded-xl border p-4">
@@ -121,30 +124,176 @@ function PaymentCard({
 					Frist {formatEventStart(payment.dueDate)}
 				</span>
 				<span className="text-muted-foreground">
-					{payment.paidUserIds.length} av {payment.memberCount} har betalt
+					{payment.approvedCount} av {payment.memberCount} har betalt
+					{payment.canManage &&
+						payment.pendingCount > 0 &&
+						` · ${payment.pendingCount} venter`}
 				</span>
 			</div>
 			<div className="flex flex-wrap items-center gap-3">
-				<Button
-					size="sm"
-					variant={paid ? "secondary" : "default"}
-					disabled={setPaid.isPending}
-					onClick={() => setPaid.mutate({ paymentId: payment.id, paid: !paid })}
-				>
-					{paid && <CheckIcon />}
-					{paid ? "Du har betalt (angre)" : "Jeg har betalt"}
-				</Button>
-				{paid && <Badge variant="secondary">Betalt</Badge>}
+				{myStatus === "approved" ? (
+					<Badge className="bg-green-600 text-white">
+						<CheckIcon />
+						Betalt
+					</Badge>
+				) : myStatus === "pending" ? (
+					<Button
+						size="sm"
+						className="bg-amber-500 text-white hover:bg-amber-500/90"
+						disabled={setPaid.isPending}
+						title="Klikk for å angre"
+						onClick={() => {
+							if (window.confirm("Angre «Jeg har betalt»?"))
+								setPaid.mutate({ paymentId: payment.id, paid: false });
+						}}
+					>
+						<ClockIcon />
+						Venter på godkjenning
+					</Button>
+				) : (
+					<Button
+						size="sm"
+						disabled={setPaid.isPending}
+						onClick={() =>
+							setPaid.mutate({ paymentId: payment.id, paid: true })
+						}
+					>
+						Jeg har betalt
+					</Button>
+				)}
+				{payment.canManage && (
+					<Button
+						size="sm"
+						variant="outline"
+						onClick={() => setReviewing(true)}
+					>
+						Se og godkjenn
+						{payment.pendingCount > 0 && ` (${payment.pendingCount} venter)`}
+					</Button>
+				)}
 			</div>
-			{payment.canManage && unpaidNames.length > 0 && (
-				<details className="text-sm">
-					<summary className="cursor-pointer text-muted-foreground">
-						Ikke betalt ({unpaidNames.length})
-					</summary>
-					<p className="mt-2">{unpaidNames.join(", ")}</p>
-				</details>
+			{myStatus === "rejected" && (
+				<p className="text-sm text-destructive">
+					Betalingen ble avvist. Sjekk at du har betalt riktig beløp.
+				</p>
+			)}
+			{reviewing && (
+				<ReviewDialog
+					payment={payment}
+					group={group}
+					onClose={() => setReviewing(false)}
+				/>
 			)}
 		</div>
+	);
+}
+
+/** (Sub-/admin) Alle medlemmene og statusen deres. Godkjenn eller avvis dem som venter. */
+function ReviewDialog({
+	payment,
+	group,
+	onClose,
+}: {
+	payment: PaymentRequest;
+	group: GroupDetails;
+	onClose: () => void;
+}) {
+	const trpc = useTRPC();
+	const queryClient = useQueryClient();
+	const review = useMutation(
+		trpc.payments.review.mutationOptions({
+			onSuccess: () =>
+				queryClient.invalidateQueries({ queryKey: trpc.payments.pathKey() }),
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const confirmations = payment.confirmations ?? [];
+	const byStatus = (status: PaymentStatus) =>
+		confirmations.filter((c) => c.status === status).map((c) => c.user);
+	const confirmed = new Set(confirmations.map((c) => c.user.id));
+	const unpaid = group.members
+		.map((m) => m.user)
+		.filter((u) => !confirmed.has(u.id))
+		.sort((a, b) => a.name.localeCompare(b.name));
+
+	return (
+		<Dialog open onOpenChange={(open) => !open && onClose()}>
+			<DialogContent className="max-h-[85svh] overflow-y-auto">
+				<DialogHeader>
+					<DialogTitle>{payment.title}</DialogTitle>
+					<DialogDescription>
+						Sjekk Vipps før du godkjenner. {payment.approvedCount} av{" "}
+						{payment.memberCount} har betalt.
+					</DialogDescription>
+				</DialogHeader>
+				<ReviewSection
+					title="Venter på godkjenning"
+					users={byStatus("pending")}
+				>
+					{(user) => (
+						<div className="flex gap-2">
+							<Button
+								size="sm"
+								disabled={review.isPending}
+								onClick={() =>
+									review.mutate({
+										paymentId: payment.id,
+										userId: user.id,
+										status: "approved",
+									})
+								}
+							>
+								Godkjenn
+							</Button>
+							<Button
+								size="sm"
+								variant="outline"
+								className="text-destructive"
+								disabled={review.isPending}
+								onClick={() =>
+									review.mutate({
+										paymentId: payment.id,
+										userId: user.id,
+										status: "rejected",
+									})
+								}
+							>
+								Avvis
+							</Button>
+						</div>
+					)}
+				</ReviewSection>
+				<ReviewSection title="Betalt" users={byStatus("approved")} />
+				<ReviewSection title="Avvist" users={byStatus("rejected")} />
+				<ReviewSection title="Ikke betalt" users={unpaid} />
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+function ReviewSection({
+	title,
+	users,
+	children,
+}: {
+	title: string;
+	users: User[];
+	children?: (user: User) => React.ReactNode;
+}) {
+	if (users.length === 0) return null;
+	return (
+		<section className="grid gap-2">
+			<h3 className="text-sm font-medium text-muted-foreground">
+				{title} ({users.length})
+			</h3>
+			{users.map((user) => (
+				<div key={user.id} className="flex items-center gap-3">
+					<UserAvatar user={user} className="size-8" />
+					<span className="flex-1 truncate text-sm">{user.name}</span>
+					{children?.(user)}
+				</div>
+			))}
+		</section>
 	);
 }
 

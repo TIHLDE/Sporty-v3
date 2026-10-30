@@ -7,6 +7,7 @@ import {
 } from "@sporty/ui/components/avatar";
 import { Badge } from "@sporty/ui/components/badge";
 import { Button } from "@sporty/ui/components/button";
+import { Input } from "@sporty/ui/components/input";
 import {
 	Table,
 	TableBody,
@@ -37,10 +38,12 @@ import { AnnouncementsTab } from "@/components/announcements";
 import { EventCard } from "@/components/event-card";
 import { GroupAvatar } from "@/components/group-avatar";
 import { Markdown } from "@/components/markdown";
+import { MemberDialog } from "@/components/member-dialog";
 import { NotificationList } from "@/components/notifications";
 import { EmptyText, PageState } from "@/components/page-state";
 import { PaymentsTab } from "@/components/payments";
 import { PollsTab } from "@/components/polls";
+import { StatsTab } from "@/components/stats";
 import { eventTargets } from "@/lib/events";
 import { useTRPC } from "@/utils/trpc";
 
@@ -51,9 +54,18 @@ export const Route = createFileRoute("/_auth/grupper/$groupId/")({
 const ROLE_LABEL = {
 	admin: "Admin",
 	subadmin: "Subadmin",
+	botsjef: "Botsjef",
 	member: "Medlem",
+	index: "Index",
 } as const;
-const ROLE_ORDER = { admin: 0, subadmin: 1, member: 2 } as const;
+// Index sorteres og vises som et vanlig medlem, siden rollen ikke skal fremheves.
+const ROLE_ORDER = {
+	admin: 0,
+	subadmin: 1,
+	botsjef: 2,
+	member: 3,
+	index: 3,
+} as const;
 
 function GroupComponent() {
 	const { groupId } = Route.useParams();
@@ -150,6 +162,7 @@ function GroupView({ group }: { group: GroupDetails }) {
 					<TabsTrigger value="avstemninger">Avstemninger</TabsTrigger>
 					<TabsTrigger value="betalinger">Betalinger</TabsTrigger>
 					<TabsTrigger value="filer">Filer</TabsTrigger>
+					<TabsTrigger value="statistikk">Statistikk</TabsTrigger>
 					<TabsTrigger value="varsler">Varsler</TabsTrigger>
 					<TabsTrigger value="medlemmer">
 						Medlemmer ({group.members.length})
@@ -174,6 +187,9 @@ function GroupView({ group }: { group: GroupDetails }) {
 				</TabsContent>
 				<TabsContent value="filer" className="pt-4">
 					<FilesTab groupId={group.id} />
+				</TabsContent>
+				<TabsContent value="statistikk" className="pt-4">
+					<StatsTab group={group} />
 				</TabsContent>
 				<TabsContent value="varsler" className="pt-4">
 					<NotificationList groupId={group.id} />
@@ -335,77 +351,113 @@ function FilesTab({ groupId }: { groupId: string }) {
 	);
 }
 
-/** Medlemmene med rolle, posisjon og om de er inaktive. */
+/**
+ * Medlemmene med rolle, posisjon og om de er inaktive. Sub-/admin klikker på et medlem for å endre
+ * rolle, posisjon, undergrupper og status.
+ */
 function Members({ group }: { group: GroupDetails }) {
-	const members = [...group.members].sort(
-		(a: Member, b: Member) =>
-			ROLE_ORDER[a.role] - ROLE_ORDER[b.role] ||
-			a.user.name.localeCompare(b.user.name),
-	);
+	const [query, setQuery] = useState("");
+	const [editingId, setEditingId] = useState<string | null>(null);
+	const q = query.trim().toLowerCase();
+	const members = [...group.members]
+		.filter((m) => !q || m.user.name.toLowerCase().includes(q))
+		.sort(
+			(a: Member, b: Member) =>
+				ROLE_ORDER[a.role] - ROLE_ORDER[b.role] ||
+				a.user.name.localeCompare(b.user.name),
+		);
 	const showPositions = group.usesPositions;
-	console.log(members[0]);
+	// Hentes fra gruppen hver gang, så dialogen viser endringene når de er lagret.
+	const editing = group.members.find((m) => m.user.id === editingId);
 	return (
-		<Table>
-			<TableHeader>
-				<TableRow>
-					<TableHead>Navn</TableHead>
-					<TableHead>Rolle</TableHead>
-					{showPositions && <TableHead>Posisjon</TableHead>}
-					<TableHead>Status</TableHead>
-				</TableRow>
-			</TableHeader>
-			<TableBody>
-				{members.map((member) => (
-					<TableRow key={member.user.id}>
-						<TableCell className="inline-flex items-center gap-2">
-							<Avatar>
-								<AvatarImage />
-								<AvatarFallback>
-									{member.user.name
-										.split(" ")
-										.slice(0, 2)
-										.map((n) => n[0].toUpperCase())
-										.join("")}
-								</AvatarFallback>
-							</Avatar>
-							<div className="font-medium">{member.user.name}</div>
-							{member.subgroupNames.length > 0 && (
-								<div className="text-xs text-muted-foreground">
-									{member.subgroupNames.join(" · ")}
-								</div>
-							)}
-						</TableCell>
-						<TableCell>
-							{member.role === "member" ? (
-								<span className="text-muted-foreground">Medlem</span>
-							) : (
-								<Badge
-									variant={member.role === "admin" ? "default" : "secondary"}
-								>
-									{ROLE_LABEL[member.role]}
-								</Badge>
-							)}
-						</TableCell>
-						{showPositions && (
-							<TableCell className="text-muted-foreground">
-								{member.position?.name ?? "–"}
-							</TableCell>
-						)}
-						<TableCell>
-							{member.inactive ? (
-								<Badge
-									variant="outline"
-									title={member.inactive.reason ?? undefined}
-								>
-									Inaktiv
-								</Badge>
-							) : (
-								<span className="text-muted-foreground">Aktiv</span>
-							)}
-						</TableCell>
+		<div className="grid gap-3">
+			<Input
+				aria-label="Søk etter medlem"
+				placeholder="Søk etter medlem"
+				value={query}
+				onChange={(e) => setQuery(e.target.value)}
+				className="max-w-xs"
+			/>
+			<Table>
+				<TableHeader>
+					<TableRow>
+						<TableHead>Navn</TableHead>
+						<TableHead>Rolle</TableHead>
+						{showPositions && <TableHead>Posisjon</TableHead>}
+						<TableHead>Status</TableHead>
 					</TableRow>
-				))}
-			</TableBody>
-		</Table>
+				</TableHeader>
+				<TableBody>
+					{members.map((member) => (
+						<TableRow
+							key={member.user.id}
+							{...(group.canManage && {
+								className: "cursor-pointer",
+								tabIndex: 0,
+								"aria-label": `Endre ${member.user.name}`,
+								onClick: () => setEditingId(member.user.id),
+								onKeyDown: (e: React.KeyboardEvent) => {
+									if (e.key === "Enter") setEditingId(member.user.id);
+								},
+							})}
+						>
+							<TableCell className="inline-flex items-center gap-2">
+								<Avatar>
+									<AvatarImage />
+									<AvatarFallback>
+										{member.user.name
+											.split(" ")
+											.slice(0, 2)
+											.map((n) => n[0].toUpperCase())
+											.join("")}
+									</AvatarFallback>
+								</Avatar>
+								<div className="font-medium">{member.user.name}</div>
+								{member.subgroupNames.length > 0 && (
+									<div className="text-xs text-muted-foreground">
+										{member.subgroupNames.join(" · ")}
+									</div>
+								)}
+							</TableCell>
+							<TableCell>
+								{member.role === "member" || member.role === "index" ? (
+									<span className="text-muted-foreground">Medlem</span>
+								) : (
+									<Badge
+										variant={member.role === "admin" ? "default" : "secondary"}
+									>
+										{ROLE_LABEL[member.role]}
+									</Badge>
+								)}
+							</TableCell>
+							{showPositions && (
+								<TableCell className="text-muted-foreground">
+									{member.position?.name ?? "–"}
+								</TableCell>
+							)}
+							<TableCell>
+								{member.inactive ? (
+									<Badge
+										variant="outline"
+										title={member.inactive.reason ?? undefined}
+									>
+										Inaktiv
+									</Badge>
+								) : (
+									<span className="text-muted-foreground">Aktiv</span>
+								)}
+							</TableCell>
+						</TableRow>
+					))}
+				</TableBody>
+			</Table>
+			{group.canManage && editing && (
+				<MemberDialog
+					group={group}
+					member={editing}
+					onClose={() => setEditingId(null)}
+				/>
+			)}
+		</div>
 	);
 }

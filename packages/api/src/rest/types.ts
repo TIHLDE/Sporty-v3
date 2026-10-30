@@ -1,7 +1,11 @@
 // Formen på dataene API-et sender til appen (DTO-er). Datamodellen i databasen ligger i
 // prisma/schema.prisma. Datoer er ISO-strenger, slik de kommer over nettverket.
 
-export type Role = "admin" | "subadmin" | "botsjef" | "index" | "member";
+/**
+ * `index` har full admin-tilgang (for Index, som drifter Sporty), men vises ikke som eget merke.
+ * `botsjef` er et vanlig medlem som i tillegg kan gi fellesbot (settes i hovedgruppen).
+ */
+export type Role = "admin" | "index" | "subadmin" | "botsjef" | "member";
 
 /** En posisjon i en gruppe, f.eks. Keeper eller Kant. Hver gruppe har sin egen liste. */
 export interface GroupPosition {
@@ -77,6 +81,8 @@ export interface Member {
 	inactive: Inactivity | null;
 	/** Undergruppene medlemmet er med i, f.eks. ["Herrer 11'er"]. Tom i undergrupper. */
 	subgroupNames: string[];
+	/** Id-ene til de samme undergruppene, til redigering. */
+	subgroupIds: string[];
 }
 
 export interface GroupDetails extends Group {
@@ -154,6 +160,9 @@ export interface Event {
 	id: string;
 	groupId: string;
 	groupName: string;
+	/** Gruppens farge og logo, så man ser hvilken gruppe arrangementet hører til. */
+	groupColor: string;
+	groupLogoUrl: string | null;
 	title: string;
 	type: EventType;
 	/** Laget man spiller mot. Bare for kamper. */
@@ -165,11 +174,15 @@ export interface Event {
 	end: string | null;
 	/** Etter fristen kan man ikke lenger svare. */
 	signupDeadline: string | null;
+	/** Maks antall som kan svare «kommer». Null betyr ingen grense. */
+	maxAttendees: number | null;
 	/** Resultat for kamper (egne mål og motstanderens), eller null hvis ikke registrert. */
 	ourScore: number | null;
 	theirScore: number | null;
 	/** Svar per bruker. Medlemmer som mangler her har ikke svart. */
 	attendance: Record<string, Answer>;
+	/** Begrunnelsen til hver som har svart «kommer ikke». Synlig for alle som ser arrangementet. */
+	absenceReasons: Record<string, string>;
 	/** Alle medlemmer i gruppen, for å regne ut hvem som ikke har svart. */
 	memberIds: string[];
 	/** Om den innloggede brukeren kan redigere og slette (sub-/admin her eller i hovedgruppen). */
@@ -317,9 +330,23 @@ export interface PaymentRequest {
 	vippsNumber: string;
 	dueDate: string;
 	createdAt: string;
-	paidUserIds: string[];
+	/** Brukerens egen status. `rejected` betyr at sub/admin avviste forrige «Jeg har betalt». */
+	myStatus: PaymentStatus | "unpaid";
+	/** Godkjent av sub/admin. Det er bare disse som teller som betalt. */
+	approvedCount: number;
+	pendingCount: number;
 	memberCount: number;
 	canManage: boolean;
+	/** Alle som har trykket «Jeg har betalt». Bare for sub/admin, ellers null. */
+	confirmations: PaymentConfirmation[] | null;
+}
+
+export type PaymentStatus = "pending" | "approved" | "rejected";
+
+export interface PaymentConfirmation {
+	user: User;
+	status: PaymentStatus;
+	createdAt: string;
 }
 
 export interface GroupFile {
@@ -368,14 +395,41 @@ export interface Message {
 	id: string;
 	conversationId: string;
 	sender: User;
+	/** Tom hvis meldingen er slettet. */
 	body: string;
 	sentAt: string;
+	deleted: boolean;
+	/** Teksten er endret etter at meldingen ble sendt. */
+	edited: boolean;
+	/** Meldingen dette er et svar på. */
+	replyTo: MessageQuote | null;
+	/** Én per emoji, i rekkefølgen de først ble brukt. */
+	reactions: MessageReaction[];
+}
+
+export interface MessageReaction {
+	emoji: string;
+	count: number;
+	/** Brukeren selv har reagert med denne. */
+	mine: boolean;
+	/** Alle som har reagert med denne, i rekkefølgen de reagerte. */
+	users: User[];
+}
+
+/** Den korte versjonen av en melding som vises over et svar. */
+export interface MessageQuote {
+	id: string;
+	senderName: string;
+	body: string;
+	deleted: boolean;
 }
 
 /** Én side med meldinger, nyeste først. `nextCursor` henter eldre meldinger. */
 export interface MessagePage {
 	messages: Message[];
 	nextCursor: string | null;
+	/** Tidspunktet alle de andre i samtalen har lest frem til. Null hvis noen ikke har lest den. */
+	readAt: string | null;
 }
 
 export interface ConversationDetails {
@@ -401,7 +455,8 @@ export interface GiveFinesInput {
 	userIds: string[];
 	count: number;
 	reason: string;
-	imageUri: string | null;
+	/** Bilde lastet opp med POST /uploads først. Vises på boten, også på tihlde.org. */
+	imageUploadId?: string | null;
 }
 
 export interface Place extends Location {
@@ -417,6 +472,8 @@ export interface CreateEventInput {
 	location: Location;
 	description: string;
 	signupDeadline: string | null;
+	/** Null fjerner grensen. Mangler feltet (eldre apper), beholdes den som er satt. */
+	maxAttendees?: number | null;
 }
 
 export interface CreateAnnouncementInput {
@@ -464,4 +521,132 @@ export interface CreatePaymentInput {
 	amount: number;
 	vippsNumber: string;
 	dueDate: string;
+}
+
+// Statistikk (GET /groups/:groupId/stats?period=…)
+
+/** Et semester («2026-H» høst, «2026-V» vår) eller «all» for alle år. */
+export interface StatsPeriod {
+	id: string;
+	label: string;
+}
+
+/** Del av en helhet, f.eks. 18 av 22 treninger. */
+export interface StatsCount {
+	count: number;
+	total: number;
+}
+
+export interface StatsPerson {
+	user: User;
+	value: number;
+	/** F.eks. antall treninger i perioden, når verdien er «av» noe. */
+	total: number | null;
+}
+
+export interface GroupStats {
+	period: StatsPeriod;
+	/** Nyeste først, «Alle år» sist. */
+	periods: StatsPeriod[];
+	/** Null hvis brukeren ikke er medlem av gruppen (f.eks. admin i hovedgruppen). */
+	me: MyStats | null;
+	team: TeamStats;
+	/** Bare for sub-/admin. */
+	admin: AdminStats | null;
+}
+
+/**
+ * Oppmøte er påmelding: svart «kommer» på arrangementer som har vært. Det regnes ut fra dagens
+ * medlemmer og deres siste svar.
+ */
+export interface MyStats {
+	attendance: StatsCount;
+	trainings: StatsCount;
+	matches: StatsCount;
+	goals: number;
+	/** Bøter gitt i Sporty i perioden (ikke bøter som bare finnes på tihlde.org). */
+	fines: number;
+	absences: StatsCount & { withReason: number };
+	/** «2026-09» … i rekkefølge. */
+	monthly: (StatsCount & { month: string })[];
+	/** Plass i oppmøte blant medlemmene (1 = flest). Null hvis ingen arrangementer. */
+	rank: number | null;
+	/** Ukedagen (0 = mandag) man har vært på flest arrangementer. */
+	favoriteWeekday: (StatsCount & { weekday: number }) | null;
+}
+
+export interface TeamStats {
+	/** Andel «kommer» av alle som var ventet. Null uten arrangementer. */
+	attendanceRate: number | null;
+	/** Samme for semesteret før, til sammenligning. Null for «Alle år». */
+	previousAttendanceRate: number | null;
+	events: {
+		total: number;
+		trening: number;
+		kamp: number;
+		sosialt: number;
+		annet: number;
+	};
+	matches: {
+		wins: number;
+		draws: number;
+		losses: number;
+		goalsFor: number;
+		goalsAgainst: number;
+		/** Siste fem kamper med resultat, eldste først. S = seier, U = uavgjort, T = tap. */
+		form: MatchResult[];
+		/** Alle kampene med resultat, nyeste først. */
+		games: StatsMatch[];
+		/** Resultatene samlet per motstander, flest kamper først. */
+		opponents: StatsOpponent[];
+	};
+	/** Alle som har scoret i perioden, flest mål først. Kortet viser de tre første. */
+	scorers: StatsPerson[];
+	/** Alle aktive medlemmer etter antall treninger, også de med null. */
+	trainings: StatsPerson[];
+	/** Ukedag (0 = mandag) og klokkeslett med best oppmøte, minst to arrangementer. */
+	bestSlot: { weekday: number; hour: number; rate: number } | null;
+}
+
+export type MatchResult = "S" | "U" | "T";
+
+export interface StatsMatch {
+	eventId: string;
+	title: string;
+	opponent: string | null;
+	start: string;
+	ourScore: number;
+	theirScore: number;
+	result: MatchResult;
+}
+
+export interface StatsOpponent {
+	/** Motstanderen slik den er skrevet på kampen, eller «Ukjent motstander». */
+	name: string;
+	wins: number;
+	draws: number;
+	losses: number;
+	goalsFor: number;
+	goalsAgainst: number;
+}
+
+export interface AdminStats {
+	/** Andel av de ventede som ikke svarte før arrangementet stengte. */
+	unansweredRate: number | null;
+	/** Arrangementer der fellesbot ble gitt, og hvor mange bøter det ble. */
+	collectiveFines: { events: number; fines: number };
+	leastResponsive: StatsPerson[];
+	payments: {
+		/** Andel godkjente betalinger der «Jeg har betalt» kom før fristen. */
+		onTimeRate: number | null;
+		/** Snitt tid fra «Jeg har betalt» til godkjent. */
+		avgApprovalHours: number | null;
+		open: {
+			id: string;
+			title: string;
+			approved: number;
+			pending: number;
+			memberCount: number;
+		}[];
+	};
 }

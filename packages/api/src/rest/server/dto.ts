@@ -3,7 +3,7 @@
 import type { Prisma } from "@sporty/db";
 
 import type * as Dto from "../types";
-import { isManager } from "./http";
+import { canGiveCollectiveFine, isManager } from "./http";
 import { prisma } from "./prisma";
 
 export function toGroup(
@@ -38,6 +38,8 @@ export const eventInclude = {
 	group: {
 		select: {
 			name: true,
+			color: true,
+			logoUrl: true,
 			parentId: true,
 			memberships: {
 				select: { userId: true, role: true, inactiveSince: true },
@@ -47,7 +49,7 @@ export const eventInclude = {
 			},
 		},
 	},
-	attendances: { select: { userId: true, status: true } },
+	attendances: { select: { userId: true, status: true, reason: true } },
 } satisfies Prisma.EventInclude;
 
 type EventRow = Prisma.EventGetPayload<{ include: typeof eventInclude }>;
@@ -76,6 +78,8 @@ export function toEvent(event: EventRow, userId: string): Dto.Event {
 		id: event.id,
 		groupId: event.groupId,
 		groupName: event.group.name,
+		groupColor: event.group.color,
+		groupLogoUrl: event.group.logoUrl,
 		title: event.title,
 		type: event.type,
 		opponent: event.opponent,
@@ -89,10 +93,16 @@ export function toEvent(event: EventRow, userId: string): Dto.Event {
 		start: event.startsAt.toISOString(),
 		end: event.endsAt?.toISOString() ?? null,
 		signupDeadline: event.signupDeadline?.toISOString() ?? null,
+		maxAttendees: event.maxAttendees,
 		ourScore: event.ourScore,
 		theirScore: event.theirScore,
 		attendance: Object.fromEntries(
 			event.attendances.map((a) => [a.userId, a.status]),
+		),
+		absenceReasons: Object.fromEntries(
+			event.attendances
+				.filter((a) => a.status === "kommer_ikke")
+				.map((a) => [a.userId, a.reason]),
 		),
 		// Inaktive medlemmer forventes ikke å svare: de står ikke under «Ikke svart», får ikke
 		// påminnelser om svarfristen og får ikke fellesbot.
@@ -101,10 +111,10 @@ export function toEvent(event: EventRow, userId: string): Dto.Event {
 			.map((m) => m.userId),
 		// Sub-/admin i hovedgruppen kan også styre arrangementer i undergruppene.
 		canManage: isManager(myRole) || isManager(parentRole),
-		// Bøter gis alltid i hovedgruppen, så det er rollen der som avgjør.
+		// Bøter gis alltid i hovedgruppen, så det er rollen der som avgjør (sub-/admin eller botsjef).
 		canGiveFines: event.group.parentId
-			? isManager(parentRole)
-			: isManager(myRole),
+			? canGiveCollectiveFine(parentRole)
+			: canGiveCollectiveFine(myRole),
 		collectiveFineGiven: event.collectiveFineAt !== null,
 	};
 }
@@ -218,7 +228,8 @@ export function toFine(
 		givenByName: fine.givenBy.name,
 		reason: fine.reason,
 		count: fine.count,
-		imageUrl: fine.imageUri,
+		// Eldre bøter kan ha en lokal filsti fra telefonen (file://…), som ingen andre kan åpne.
+		imageUrl: fine.imageUri?.startsWith("/api/uploads/") ? fine.imageUri : null,
 		defense: null,
 		paid: fine.paid,
 		collective: fine.collective,
@@ -228,15 +239,19 @@ export function toFine(
 
 export const paymentInclude = {
 	createdBy: { select: { name: true } },
-	confirmations: { select: { userId: true } },
+	confirmations: { include: { user: true }, orderBy: { createdAt: "asc" } },
 	group: { select: { _count: { select: { memberships: true } } } },
 } satisfies Prisma.PaymentRequestInclude;
 
+/** `userId` er den som ser på betalingen, så `myStatus` blir riktig. */
 export function toPayment(
 	p: Prisma.PaymentRequestGetPayload<{ include: typeof paymentInclude }>,
+	userId: string,
 	/** Sub-/admin i gruppen eller i hovedgruppen. */
 	canManage: boolean,
 ): Dto.PaymentRequest {
+	const count = (status: Dto.PaymentStatus) =>
+		p.confirmations.filter((c) => c.status === status).length;
 	return {
 		id: p.id,
 		groupId: p.groupId,
@@ -247,9 +262,19 @@ export function toPayment(
 		vippsNumber: p.vippsNumber,
 		dueDate: p.dueDate.toISOString(),
 		createdAt: p.createdAt.toISOString(),
-		paidUserIds: p.confirmations.map((c) => c.userId),
+		myStatus:
+			p.confirmations.find((c) => c.userId === userId)?.status ?? "unpaid",
+		approvedCount: count("approved"),
+		pendingCount: count("pending"),
 		memberCount: p.group._count.memberships,
 		canManage,
+		confirmations: canManage
+			? p.confirmations.map((c) => ({
+					user: toUser(c.user),
+					status: c.status,
+					createdAt: c.createdAt.toISOString(),
+				}))
+			: null,
 	};
 }
 

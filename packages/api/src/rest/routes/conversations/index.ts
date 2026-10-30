@@ -29,7 +29,7 @@ export const GET = handler(async (request): Promise<Conversation[]> => {
 					? {
 							senderId: last.senderId,
 							senderName: last.sender.name,
-							body: last.body,
+							body: last.deletedAt ? "Meldingen ble slettet" : last.body,
 							sentAt: last.sentAt.toISOString(),
 						}
 					: null,

@@ -37,6 +37,16 @@ const groupsRouter = router({
 				`/groups/${enc(input.groupId)}/files`,
 			),
 		),
+	/** Statistikk per semester («2026-H», «2026-V») eller «all». Uten periode: gjeldende semester. */
+	stats: protectedProcedure
+		.input(z.object({ groupId: id, period: z.string().nullish() }))
+		.query(({ ctx, input }) =>
+			restCall<Dto.GroupStats>(
+				ctx,
+				"GET",
+				`/groups/${enc(input.groupId)}/stats${query({ period: input.period ?? undefined })}`,
+			),
+		),
 	/** Hovedgrupper der brukeren kan gi bøter. */
 	finesGroups: protectedProcedure.query(({ ctx }) =>
 		restCall<Dto.Group[]>(ctx, "GET", "/groups/managed"),
@@ -56,6 +66,7 @@ const eventInput = z.object({
 	}),
 	description: z.string(),
 	signupDeadline: z.string().nullable(),
+	maxAttendees: z.number().int().positive().nullable().optional(),
 });
 const score = z.number().int().min(0).max(99).nullable();
 
@@ -154,8 +165,15 @@ const eventsRouter = router({
 				`/events/${enc(input.eventId)}/collective-fine`,
 			),
 		),
+	/** «Kommer ikke» krever `reason`. */
 	respond: protectedProcedure
-		.input(z.object({ eventId: id, status: z.enum(["kommer", "kommer_ikke"]) }))
+		.input(
+			z.object({
+				eventId: id,
+				status: z.enum(["kommer", "kommer_ikke"]),
+				reason: z.string().optional(),
+			}),
+		)
 		.mutation(({ ctx, input }) =>
 			restCall<Dto.Event>(
 				ctx,
@@ -163,6 +181,7 @@ const eventsRouter = router({
 				`/events/${enc(input.eventId)}/attendance`,
 				{
 					status: input.status,
+					reason: input.reason,
 				},
 			),
 		),
@@ -227,12 +246,14 @@ const finesRouter = router({
 				userIds: z.array(id).min(1),
 				count: z.number().int(),
 				reason: z.string(),
+				/** Fra POST /api/uploads. */
+				imageUploadId: id.nullish(),
 			}),
 		)
 		.mutation(({ ctx, input }) =>
 			restCall<{ count: number; duplicate?: boolean }>(ctx, "POST", "/fines", {
 				...input,
-				imageUri: null,
+				imageUploadId: input.imageUploadId ?? null,
 			}),
 		),
 	setStatus: protectedProcedure
@@ -370,7 +391,24 @@ const paymentsRouter = router({
 				payment,
 			),
 		),
-	/** Medlemmet markerer selv at det har betalt (eller angrer). */
+	/** (Sub-/admin) Godkjenn eller avvis et medlems «Jeg har betalt». */
+	review: protectedProcedure
+		.input(
+			z.object({
+				paymentId: id,
+				userId: id,
+				status: z.enum(["approved", "rejected"]),
+			}),
+		)
+		.mutation(({ ctx, input }) =>
+			restCall<Dto.PaymentRequest>(
+				ctx,
+				"PUT",
+				`/payments/${enc(input.paymentId)}/confirmations/${enc(input.userId)}`,
+				{ status: input.status },
+			),
+		),
+	/** Medlemmet markerer selv at det har betalt (eller angrer mens det venter). */
 	setPaid: protectedProcedure
 		.input(z.object({ paymentId: id, paid: z.boolean() }))
 		.mutation(({ ctx, input }) =>
@@ -478,7 +516,7 @@ const groupAdminRouter = router({
 			z.object({
 				groupId: id,
 				userId: id,
-				role: z.enum(["admin", "subadmin", "member"]),
+				role: z.enum(["admin", "index", "subadmin", "botsjef", "member"]),
 			}),
 		)
 		.mutation(({ ctx, input }) =>
@@ -491,6 +529,7 @@ const groupAdminRouter = router({
 				},
 			),
 		),
+	/** Sub-/admin setter posisjonen til hvem som helst; medlemmet kan sette sin egen. */
 	setPosition: protectedProcedure
 		.input(z.object({ groupId: id, userId: id, positionId: id.nullable() }))
 		.mutation(({ ctx, input }) =>
@@ -501,6 +540,17 @@ const groupAdminRouter = router({
 				{
 					positionId: input.positionId,
 				},
+			),
+		),
+	/** (Admin) Hvilke undergrupper et medlem av hovedgruppen er med i. */
+	setSubgroups: protectedProcedure
+		.input(z.object({ groupId: id, userId: id, subgroupIds: z.array(id) }))
+		.mutation(({ ctx, input }) =>
+			restCall<{ subgroupIds: string[] }>(
+				ctx,
+				"PUT",
+				`/groups/${enc(input.groupId)}/members/${enc(input.userId)}/subgroups`,
+				{ subgroupIds: input.subgroupIds },
 			),
 		),
 	/** Gjør inaktiv med begrunnelse, eller aktiv igjen med null. */
@@ -622,13 +672,51 @@ const messagesRouter = router({
 			),
 		),
 	send: protectedProcedure
-		.input(z.object({ conversationId: id, body: z.string() }))
+		.input(
+			z.object({
+				conversationId: id,
+				body: z.string(),
+				replyToId: id.nullish(),
+			}),
+		)
 		.mutation(({ ctx, input }) =>
 			restCall<Dto.Message>(
 				ctx,
 				"POST",
 				`/conversations/${enc(input.conversationId)}/messages`,
+				{ body: input.body, replyToId: input.replyToId ?? null },
+			),
+		),
+	/** Reager med en emoji, eller fjern reaksjonen hvis man allerede har den. */
+	react: protectedProcedure
+		.input(z.object({ conversationId: id, messageId: id, emoji: z.string() }))
+		.mutation(({ ctx, input }) =>
+			restCall<Dto.Message>(
+				ctx,
+				"POST",
+				`/conversations/${enc(input.conversationId)}/messages/${enc(input.messageId)}/reactions`,
+				{ emoji: input.emoji },
+			),
+		),
+	/** Rediger en av sine egne meldinger (første 15 minutter). */
+	edit: protectedProcedure
+		.input(z.object({ conversationId: id, messageId: id, body: z.string() }))
+		.mutation(({ ctx, input }) =>
+			restCall<Dto.Message>(
+				ctx,
+				"PATCH",
+				`/conversations/${enc(input.conversationId)}/messages/${enc(input.messageId)}`,
 				{ body: input.body },
+			),
+		),
+	/** Slett en av sine egne meldinger (første 15 minutter). */
+	delete: protectedProcedure
+		.input(z.object({ conversationId: id, messageId: id }))
+		.mutation(({ ctx, input }) =>
+			restCall<Dto.Message>(
+				ctx,
+				"DELETE",
+				`/conversations/${enc(input.conversationId)}/messages/${enc(input.messageId)}`,
 			),
 		),
 	markRead: protectedProcedure

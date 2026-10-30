@@ -6,6 +6,7 @@ import {
 	getRole,
 	getUserId,
 	handler,
+	isAdmin,
 	isManager,
 	readJson,
 	requireAccess,
@@ -18,7 +19,8 @@ import {
 import { prisma } from "../../../server/prisma";
 import type { GroupDetails, UpdateGroupInput } from "../../../types";
 
-const ROLE_ORDER = { admin: 0, subadmin: 1, member: 2 };
+// Index sorteres sammen med medlemmene, siden rollen ikke skal fremheves.
+const ROLE_ORDER = { admin: 0, subadmin: 1, botsjef: 2, member: 3, index: 3 };
 
 export const GET = handler<{ groupId: string }>(
 	async (request, { groupId }): Promise<GroupDetails> => {
@@ -48,7 +50,7 @@ export const GET = handler<{ groupId: string }>(
 		// Sub-/admin i hovedgruppen styrer også undergruppene.
 		const parentRole = parentId ? await getRole(userId, parentId) : null;
 		const canManage = isManager(role) || isManager(parentRole);
-		const canAdmin = role === "admin" || parentRole === "admin";
+		const canAdmin = isAdmin(role) || isAdmin(parentRole);
 
 		return {
 			...toGroup(group, role),
@@ -79,6 +81,9 @@ export const GET = handler<{ groupId: string }>(
 					subgroupNames: group.subgroups
 						.filter((s) => s.memberships.some((sm) => sm.userId === m.userId))
 						.map((s) => s.name),
+					subgroupIds: group.subgroups
+						.filter((s) => s.memberships.some((sm) => sm.userId === m.userId))
+						.map((s) => s.id),
 				}))
 				.sort(
 					(a, b) =>

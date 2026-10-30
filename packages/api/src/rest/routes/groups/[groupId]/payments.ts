@@ -21,7 +21,7 @@ export const GET = handler<{ groupId: string }>(
 			include: paymentInclude,
 			orderBy: { dueDate: "asc" },
 		});
-		return payments.map((p) => toPayment(p, canManage));
+		return payments.map((p) => toPayment(p, userId, canManage));
 	},
 );
 
@@ -77,6 +77,6 @@ export const POST = handler<{ groupId: string }>(
 			},
 		);
 
-		return Response.json(toPayment(payment, true), { status: 201 });
+		return Response.json(toPayment(payment, userId, true), { status: 201 });
 	},
 );

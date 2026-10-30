@@ -58,7 +58,11 @@ async function main() {
         startsAt: new Date(event.start),
         endsAt: event.end ? new Date(event.end) : null,
         attendances: {
-          create: Object.entries(event.attendance).map(([userId, status]) => ({ userId, status })),
+          create: Object.entries(event.attendance).map(([userId, status]) => ({
+            userId,
+            status,
+            reason: status === "kommer_ikke" ? "Har eksamen" : "",
+          })),
         },
       },
     });
