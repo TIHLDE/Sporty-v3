@@ -217,6 +217,13 @@ export const isAdmin = (role: Role | null) =>
 	role === "admin" || role === "index";
 
 export const isManager = (role: Role | null) =>
+	role === "admin" || role === "subadmin" || role === "index";
+
+/**
+ * Botroller: botsjef (i hovedgruppen) og rollene over har bot-rydderrettigheter: snitches,
+ * godkjenne/avvise bøter osv. Ikke samme som isManager (arrangementer, innstillinger, betalinger).
+ */
+export const isFineManager = (role: Role | null) =>
 	isAdmin(role) || role === "subadmin";
 
 /** Sub-/admin og botsjef kan gi fellesbot. Rollen gjelder i hovedgruppen, der bøtene hører til. */

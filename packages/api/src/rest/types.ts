@@ -142,6 +142,8 @@ export interface GroupFinesInfo {
 	canGive: boolean;
 	/** Kan godkjenne, markere som betalt og avvise (botsjef og leder på tihlde.org). */
 	canSettle: boolean;
+	/** Kan bruke snitches (gi massebot til alle som ikke har snitchet): botsjef og sub-/admin. */
+	canSnitch: boolean;
 }
 
 export interface Location {
