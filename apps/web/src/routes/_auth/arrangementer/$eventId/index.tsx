@@ -1,4 +1,4 @@
-import { formatEventRange } from "@sporty/api/rest/lib/dates";
+import { formatEventRange, formatRelative } from "@sporty/api/rest/lib/dates";
 import type {
 	Event,
 	GroupDetails,
@@ -32,7 +32,7 @@ import {
 	PencilIcon,
 	Trash2Icon,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -62,7 +62,21 @@ export const Route = createFileRoute("/_auth/arrangementer/$eventId/")({
 function EventComponent() {
 	const { eventId } = Route.useParams();
 	const trpc = useTRPC();
+	const queryClient = useQueryClient();
 	const event = useQuery(trpc.events.get.queryOptions({ eventId }));
+
+	// Registrer at arrangementet er åpnet, så sub-/admin ser hvem som har sett det uten å svare.
+	const { mutate: markSeen } = useMutation(
+		trpc.events.markSeen.mutationOptions({
+			onSuccess: () =>
+				queryClient.invalidateQueries({
+					queryKey: trpc.events.get.queryKey({ eventId }),
+				}),
+		}),
+	);
+	useEffect(() => {
+		markSeen({ eventId });
+	}, [eventId, markSeen]);
 
 	return (
 		<PageState query={event}>{(data) => <EventView event={data} />}</PageState>
@@ -200,7 +214,12 @@ function EventView({ event }: { event: Event }) {
 					group={group.data}
 					reasons={event.absenceReasons}
 				/>
-				<Participants title="Ikke svart" ids={ubesvart} group={group.data} />
+				<Participants
+					title="Ikke svart"
+					ids={ubesvart}
+					group={group.data}
+					reasons={event.canManage ? seenLabels(event, ubesvart) : undefined}
+				/>
 			</div>
 
 			{canGiveCollectiveFine(event, ubesvart.length) && (
@@ -210,7 +229,20 @@ function EventView({ event }: { event: Event }) {
 	);
 }
 
-/** `reasons` brukes for «Kommer ikke»: begrunnelsen vises under navnet. */
+/** For sub-/admin under «Ikke svart»: om hver person har åpnet arrangementet, og når. */
+function seenLabels(event: Event, ids: string[]) {
+	return Object.fromEntries(
+		ids.map((id) => {
+			const seenAt = event.seenAt[id];
+			return [id, seenAt ? `Sett ${formatRelative(seenAt)}` : "Ikke sett"];
+		}),
+	);
+}
+
+/**
+ * `reasons` vises under navnet: begrunnelsen under «Kommer ikke», og om man har sett
+ * arrangementet under «Ikke svart» (bare for sub-/admin).
+ */
 function Participants({
 	title,
 	ids,

@@ -183,6 +183,8 @@ export interface Event {
 	attendance: Record<string, Answer>;
 	/** Begrunnelsen til hver som har svart «kommer ikke». Synlig for alle som ser arrangementet. */
 	absenceReasons: Record<string, string>;
+	/** Når hver person sist åpnet arrangementet (ISO-tid). Bare med for sub-/admin, ellers tom. */
+	seenAt: Record<string, string>;
 	/** Alle medlemmer i gruppen, for å regne ut hvem som ikke har svart. */
 	memberIds: string[];
 	/** Om den innloggede brukeren kan redigere og slette (sub-/admin her eller i hovedgruppen). */
