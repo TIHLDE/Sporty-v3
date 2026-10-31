@@ -50,6 +50,7 @@ export const eventInclude = {
 		},
 	},
 	attendances: { select: { userId: true, status: true, reason: true } },
+	views: { select: { userId: true, seenAt: true } },
 } satisfies Prisma.EventInclude;
 
 type EventRow = Prisma.EventGetPayload<{ include: typeof eventInclude }>;
@@ -74,6 +75,8 @@ export function toEvent(event: EventRow, userId: string): Dto.Event {
 	const parentRole =
 		event.group.parent?.memberships.find((m) => m.userId === userId)?.role ??
 		null;
+	// Sub-/admin i hovedgruppen kan også styre arrangementer i undergruppene.
+	const canManage = isManager(myRole) || isManager(parentRole);
 	return {
 		id: event.id,
 		groupId: event.groupId,
@@ -109,8 +112,13 @@ export function toEvent(event: EventRow, userId: string): Dto.Event {
 		memberIds: event.group.memberships
 			.filter((m) => !m.inactiveSince)
 			.map((m) => m.userId),
-		// Sub-/admin i hovedgruppen kan også styre arrangementer i undergruppene.
-		canManage: isManager(myRole) || isManager(parentRole),
+		// Hvem som har åpnet arrangementet er bare for sub-/admin, så andre får en tom liste.
+		seenAt: canManage
+			? Object.fromEntries(
+					event.views.map((v) => [v.userId, v.seenAt.toISOString()]),
+				)
+			: {},
+		canManage,
 		// Bøter gis alltid i hovedgruppen, så det er rollen der som avgjør (sub-/admin eller botsjef).
 		canGiveFines: event.group.parentId
 			? canGiveCollectiveFine(parentRole)
