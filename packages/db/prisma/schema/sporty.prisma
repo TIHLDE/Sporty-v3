@@ -72,6 +72,7 @@ model Person {
 
   memberships          Membership[]
   attendances          Attendance[]
+  eventViews           EventView[]
   announcements        Announcement[]
   pollVotes            PollVote[]
   fines                Fine[]                @relation("FineReceiver")
@@ -229,8 +230,21 @@ model Event {
   attendances Attendance[]
   fines       Fine[]
   matchStats  MatchStat[]
+  views       EventView[]
 
   @@index([groupId, startsAt])
+}
+
+/// Når hver person sist åpnet arrangementet. Vises for sub-/admin under «Ikke svart», så de ser
+/// hvem som har sett innkallingen uten å svare.
+model EventView {
+  eventId String
+  userId  String
+  seenAt  DateTime
+  event   Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user    Person   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, userId])
 }
 
 /// Svar på et arrangement. Medlemmer uten rad her har ikke svart.

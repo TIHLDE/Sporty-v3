@@ -88,6 +88,11 @@ const eventsRouter = router({
 		.query(({ ctx, input }) =>
 			restCall<Dto.Event>(ctx, "GET", `/events/${enc(input.eventId)}`),
 		),
+	markSeen: protectedProcedure
+		.input(z.object({ eventId: id }))
+		.mutation(({ ctx, input }) =>
+			restCall(ctx, "POST", `/events/${enc(input.eventId)}/seen`),
+		),
 	create: protectedProcedure
 		.input(
 			z.object({

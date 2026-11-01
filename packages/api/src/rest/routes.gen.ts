@@ -18,6 +18,7 @@ import * as r35 from "./routes/events/[eventId]/index";
 import * as rMatchStat from "./routes/events/[eventId]/match-facts/[statId]";
 import * as rMatchFacts from "./routes/events/[eventId]/match-facts/index";
 import * as r11 from "./routes/events/[eventId]/result";
+import * as rEventSeen from "./routes/events/[eventId]/seen";
 import * as r43 from "./routes/events/index";
 import * as r36 from "./routes/fines/[fineId]";
 import * as rFineImage from "./routes/fines/[fineId]/image";
@@ -99,6 +100,7 @@ export const routes = [
 	{ pattern: "/events/:eventId/attendance", module: r9 },
 	{ pattern: "/events/:eventId/collective-fine", module: r10 },
 	{ pattern: "/events/:eventId/result", module: r11 },
+	{ pattern: "/events/:eventId/seen", module: rEventSeen },
 	{ pattern: "/events/:eventId/match-facts", module: rMatchFacts },
 	{ pattern: "/groups/:groupId/announcements", module: r12 },
 	{ pattern: "/groups/:groupId/events", module: r13 },
