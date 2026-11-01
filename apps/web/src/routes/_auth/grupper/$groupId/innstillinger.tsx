@@ -48,7 +48,13 @@ import {
 	Trash2Icon,
 	TrophyIcon,
 } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import {
+	type ReactNode,
+	useEffect,
+	useLayoutEffect,
+	useRef,
+	useState,
+} from "react";
 import { toast } from "sonner";
 
 import { CheckboxField } from "@/components/checkbox-field";
@@ -130,24 +136,20 @@ function Settings({ group }: { group: GroupDetails }) {
 		},
 		{ id: "eksport", title: "Eksport", show: true },
 	].filter((section) => section.show);
-	const active = useActiveSection(sections.map((section) => section.id));
+	const { active, goTo } = useSectionNavigation(
+		sections.map((section) => section.id),
+	);
 
 	return (
 		<div className="flex w-full max-w-5xl gap-8">
 			<aside className="hidden w-48 shrink-0 lg:block">
-				<nav
-					aria-label="Seksjoner"
-					className="sticky top-20 grid gap-0.5 text-sm"
-				>
-					{sections.map((section) => (
-						<SectionLink
-							key={section.id}
-							section={section}
-							active={active === section.id}
-							className="rounded-md px-3 py-1.5"
-						/>
-					))}
-				</nav>
+				<SectionNav
+					sections={sections}
+					active={active}
+					onSelect={goTo}
+					orientation="vertical"
+					className="sticky top-20 grid gap-0.5"
+				/>
 			</aside>
 
 			<div className="grid min-w-0 flex-1 grid-cols-1 gap-8">
@@ -162,19 +164,13 @@ function Settings({ group }: { group: GroupDetails }) {
 				<h1 className="text-2xl font-semibold">Innstillinger</h1>
 
 				{/* På små skjermer er menyen en rad under toppmenyen i stedet for en kolonne. */}
-				<nav
-					aria-label="Seksjoner"
-					className="sticky top-14 z-[5] -mx-4 -my-4 flex gap-1 overflow-x-auto border-b bg-background/90 px-4 py-2 text-sm backdrop-blur lg:hidden"
-				>
-					{sections.map((section) => (
-						<SectionLink
-							key={section.id}
-							section={section}
-							active={active === section.id}
-							className="shrink-0 rounded-full px-3 py-1"
-						/>
-					))}
-				</nav>
+				<SectionNav
+					sections={sections}
+					active={active}
+					onSelect={goTo}
+					orientation="horizontal"
+					className="sticky top-14 z-[5] -mx-4 -my-4 flex gap-1 overflow-x-auto border-b bg-background/90 px-4 py-2 backdrop-blur lg:hidden"
+				/>
 
 				{isAdmin && <GroupDetailsSection group={group} />}
 				<MembersSection group={group} />
@@ -189,45 +185,119 @@ function Settings({ group }: { group: GroupDetails }) {
 	);
 }
 
-/** Lenke til en seksjon på siden. Ruller dit mykt og setter #id i adressen, så den kan deles. */
-function SectionLink({
-	section,
+const prefersReducedMotion = () =>
+	window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/**
+ * Menyen med seksjonene. Markeringen er ett felles element som glir til den aktive lenken, i stedet
+ * for at hver lenke skifter bakgrunn. Liggende (små skjermer) rulles raden så den aktive er synlig.
+ */
+function SectionNav({
+	sections,
 	active,
+	onSelect,
+	orientation,
 	className,
 }: {
-	section: { id: string; title: string };
-	active: boolean;
+	sections: { id: string; title: string }[];
+	active: string;
+	onSelect: (id: string) => void;
+	orientation: "vertical" | "horizontal";
 	className: string;
 }) {
+	const navRef = useRef<HTMLElement>(null);
+	const links = useRef(new Map<string, HTMLAnchorElement>());
+	const [indicator, setIndicator] = useState<{
+		x: number;
+		y: number;
+		width: number;
+		height: number;
+	} | null>(null);
+	// Første plassering skal ikke animeres inn fra hjørnet.
+	const [animate, setAnimate] = useState(false);
+
+	useLayoutEffect(() => {
+		const measure = () => {
+			const link = links.current.get(active);
+			// Skjult meny (feil skjermstørrelse) har ingen mål.
+			if (!link || link.offsetWidth === 0) return;
+			setIndicator({
+				x: link.offsetLeft,
+				y: link.offsetTop,
+				width: link.offsetWidth,
+				height: link.offsetHeight,
+			});
+			const nav = navRef.current;
+			if (orientation === "horizontal" && nav) {
+				nav.scrollTo({
+					left: link.offsetLeft - (nav.clientWidth - link.offsetWidth) / 2,
+					behavior: prefersReducedMotion() ? "auto" : "smooth",
+				});
+			}
+		};
+		measure();
+		window.addEventListener("resize", measure);
+		return () => window.removeEventListener("resize", measure);
+	}, [active, orientation, sections.length]);
+
+	useEffect(() => {
+		if (!indicator || animate) return;
+		const frame = requestAnimationFrame(() => setAnimate(true));
+		return () => cancelAnimationFrame(frame);
+	}, [indicator, animate]);
+
+	const vertical = orientation === "vertical";
 	return (
-		<a
-			href={`#${section.id}`}
-			aria-current={active ? "location" : undefined}
-			onClick={(e) => {
-				e.preventDefault();
-				document
-					.getElementById(section.id)
-					?.scrollIntoView({ behavior: "smooth", block: "start" });
-				window.history.replaceState(null, "", `#${section.id}`);
-			}}
-			className={`${className} text-muted-foreground transition-colors hover:text-foreground aria-[current=location]:bg-muted aria-[current=location]:font-medium aria-[current=location]:text-foreground`}
-		>
-			{section.title}
-		</a>
+		<nav ref={navRef} aria-label="Seksjoner" className={`${className} text-sm`}>
+			{indicator && (
+				<span
+					aria-hidden
+					className={`pointer-events-none absolute top-0 left-0 bg-muted ${vertical ? "rounded-md" : "rounded-full"} ${animate ? "transition-[transform,width,height] duration-300 ease-out motion-reduce:transition-none" : ""}`}
+					style={{
+						transform: `translate(${indicator.x}px, ${indicator.y}px)`,
+						width: indicator.width,
+						height: indicator.height,
+					}}
+				/>
+			)}
+			{sections.map((section) => (
+				<a
+					key={section.id}
+					ref={(el) => {
+						if (el) links.current.set(section.id, el);
+						else links.current.delete(section.id);
+					}}
+					href={`#${section.id}`}
+					aria-current={active === section.id ? "location" : undefined}
+					onClick={(e) => {
+						e.preventDefault();
+						onSelect(section.id);
+					}}
+					className={`relative ${vertical ? "rounded-md px-3 py-1.5" : "shrink-0 rounded-full px-3 py-1"} text-muted-foreground transition-colors duration-300 hover:text-foreground aria-[current=location]:text-foreground`}
+				>
+					{section.title}
+				</a>
+			))}
+		</nav>
 	);
 }
 
 /**
- * Seksjonen man er i: den siste som har nådd toppen av skjermen (under toppmenyen). Helt nederst
- * er det den siste, selv om den er for kort til å nå toppen.
+ * Hvilken seksjon man er i, og `goTo` for å rulle til en. Under scrollingen følger markeringen
+ * siden: den siste seksjonen som har nådd toppen av skjermen (under toppmenyen), eller den siste
+ * helt nederst. Etter et klikk står markeringen på målet hele veien, i stedet for å hoppe gjennom
+ * seksjonene i mellom, og målet lyser kort opp når siden er fremme.
  */
-function useActiveSection(ids: string[]) {
+function useSectionNavigation(ids: string[]) {
 	const [active, setActive] = useState(ids[0]);
+	// Satt mens siden ruller til en seksjon man har klikket på.
+	const target = useRef<string | null>(null);
 	const key = ids.join(",");
 
 	useEffect(() => {
 		const sectionIds = key.split(",");
 		const update = () => {
+			if (target.current) return;
 			let current = sectionIds[0];
 			for (const id of sectionIds) {
 				const top = document.getElementById(id)?.getBoundingClientRect().top;
@@ -247,7 +317,46 @@ function useActiveSection(ids: string[]) {
 		};
 	}, [key]);
 
-	return active;
+	const goTo = (id: string) => {
+		const section = document.getElementById(id);
+		if (!section) return;
+		const reduceMotion = prefersReducedMotion();
+		target.current = id;
+		setActive(id);
+		window.history.replaceState(null, "", `#${id}`);
+		section.scrollIntoView({
+			behavior: reduceMotion ? "auto" : "smooth",
+			block: "start",
+		});
+
+		// Fremme når det ikke har kommet scroll-hendelser på en stund. `scrollend` finnes ikke i
+		// alle nettlesere, og kommer ikke i det hele tatt hvis siden allerede står der.
+		let idle = 0;
+		const arrived = () => {
+			window.removeEventListener("scroll", wait);
+			// Et nyere klikk har tatt over.
+			if (target.current !== id) return;
+			target.current = null;
+			if (!reduceMotion) {
+				section.animate(
+					[
+						{ boxShadow: "0 0 0 0 transparent" },
+						{ boxShadow: "0 0 0 3px var(--ring)", offset: 0.2 },
+						{ boxShadow: "0 0 0 0 transparent" },
+					],
+					{ duration: 1200, easing: "ease-out" },
+				);
+			}
+		};
+		const wait = () => {
+			window.clearTimeout(idle);
+			idle = window.setTimeout(arrived, 120);
+		};
+		window.addEventListener("scroll", wait, { passive: true });
+		wait();
+	};
+
+	return { active, goTo };
 }
 
 function Section({
