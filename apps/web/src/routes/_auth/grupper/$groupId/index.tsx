@@ -40,6 +40,7 @@ import { GroupAvatar } from "@/components/group-avatar";
 import { Markdown } from "@/components/markdown";
 import { MemberDialog } from "@/components/member-dialog";
 import { NotificationList } from "@/components/notifications";
+import { OfficeHistory } from "@/components/offices";
 import { EmptyText, PageState } from "@/components/page-state";
 import { PaymentsTab } from "@/components/payments";
 import { PollsTab } from "@/components/polls";
@@ -195,7 +196,10 @@ function GroupView({ group }: { group: GroupDetails }) {
 					<NotificationList groupId={group.id} />
 				</TabsContent>
 				<TabsContent value="medlemmer" className="pt-4">
-					<Members group={group} />
+					<div className="grid gap-8">
+						<Members group={group} />
+						<OfficeHistory groupId={group.id} />
+					</div>
 				</TabsContent>
 				<TabsContent value="undergrupper" className="grid gap-3 pt-4">
 					{group.subgroups.length === 0 && (
@@ -367,6 +371,7 @@ function Members({ group }: { group: GroupDetails }) {
 				a.user.name.localeCompare(b.user.name),
 		);
 	const showPositions = group.usesPositions;
+	const showOffices = group.members.some((m) => m.offices.length > 0);
 	// Hentes fra gruppen hver gang, så dialogen viser endringene når de er lagret.
 	const editing = group.members.find((m) => m.user.id === editingId);
 	return (
@@ -384,6 +389,7 @@ function Members({ group }: { group: GroupDetails }) {
 						<TableHead>Navn</TableHead>
 						<TableHead>Rolle</TableHead>
 						{showPositions && <TableHead>Posisjon</TableHead>}
+						{showOffices && <TableHead>Verv</TableHead>}
 						<TableHead>Status</TableHead>
 					</TableRow>
 				</TableHeader>
@@ -433,6 +439,11 @@ function Members({ group }: { group: GroupDetails }) {
 							{showPositions && (
 								<TableCell className="text-muted-foreground">
 									{member.position?.name ?? "–"}
+								</TableCell>
+							)}
+							{showOffices && (
+								<TableCell className="text-muted-foreground">
+									{member.offices.join(", ") || "–"}
 								</TableCell>
 							)}
 							<TableCell>

@@ -19,6 +19,12 @@ function query(params: Record<string, string | number | undefined>) {
 
 const enc = encodeURIComponent;
 
+const periodInput = z.object({
+	name: z.string(),
+	from: z.string(),
+	to: z.string(),
+});
+
 const groupsRouter = router({
 	list: protectedProcedure.query(({ ctx }) =>
 		restCall<Dto.Group[]>(ctx, "GET", "/groups"),
@@ -45,6 +51,16 @@ const groupsRouter = router({
 				ctx,
 				"GET",
 				`/groups/${enc(input.groupId)}/stats${query({ period: input.period ?? undefined })}`,
+			),
+		),
+	/** Vervhistorikken til laget (fra hovedgruppen hvis det er en undergruppe). */
+	offices: protectedProcedure
+		.input(z.object({ groupId: id }))
+		.query(({ ctx, input }) =>
+			restCall<Dto.OfficeHistory>(
+				ctx,
+				"GET",
+				`/groups/${enc(input.groupId)}/offices`,
 			),
 		),
 	/** Hovedgrupper der brukeren kan gi bøter. */
@@ -597,6 +613,84 @@ const groupAdminRouter = router({
 				ctx,
 				"DELETE",
 				`/groups/${enc(input.groupId)}/positions/${enc(input.positionId)}`,
+			),
+		),
+	/** (Admin i hovedgruppen) Vervene og periodene i vervhistorikken. */
+	createOffice: protectedProcedure
+		.input(z.object({ groupId: id, name: z.string() }))
+		.mutation(({ ctx, input }) =>
+			restCall<Dto.Office>(
+				ctx,
+				"POST",
+				`/groups/${enc(input.groupId)}/offices`,
+				{
+					name: input.name,
+				},
+			),
+		),
+	renameOffice: protectedProcedure
+		.input(z.object({ groupId: id, officeId: id, name: z.string() }))
+		.mutation(({ ctx, input }) =>
+			restCall(
+				ctx,
+				"PATCH",
+				`/groups/${enc(input.groupId)}/offices/${enc(input.officeId)}`,
+				{ name: input.name },
+			),
+		),
+	deleteOffice: protectedProcedure
+		.input(z.object({ groupId: id, officeId: id }))
+		.mutation(({ ctx, input }) =>
+			restCall(
+				ctx,
+				"DELETE",
+				`/groups/${enc(input.groupId)}/offices/${enc(input.officeId)}`,
+			),
+		),
+	createOfficePeriod: protectedProcedure
+		.input(periodInput.extend({ groupId: id }))
+		.mutation(({ ctx, input: { groupId, ...period } }) =>
+			restCall<{ id: string }>(
+				ctx,
+				"POST",
+				`/groups/${enc(groupId)}/office-periods`,
+				period,
+			),
+		),
+	updateOfficePeriod: protectedProcedure
+		.input(periodInput.extend({ groupId: id, periodId: id }))
+		.mutation(({ ctx, input: { groupId, periodId, ...period } }) =>
+			restCall(
+				ctx,
+				"PATCH",
+				`/groups/${enc(groupId)}/office-periods/${enc(periodId)}`,
+				period,
+			),
+		),
+	deleteOfficePeriod: protectedProcedure
+		.input(z.object({ groupId: id, periodId: id }))
+		.mutation(({ ctx, input }) =>
+			restCall(
+				ctx,
+				"DELETE",
+				`/groups/${enc(input.groupId)}/office-periods/${enc(input.periodId)}`,
+			),
+		),
+	setOfficeHolders: protectedProcedure
+		.input(
+			z.object({
+				groupId: id,
+				periodId: id,
+				officeId: id,
+				userIds: z.array(id),
+			}),
+		)
+		.mutation(({ ctx, input }) =>
+			restCall(
+				ctx,
+				"PUT",
+				`/groups/${enc(input.groupId)}/office-periods/${enc(input.periodId)}/holders`,
+				{ officeId: input.officeId, userIds: input.userIds },
 			),
 		),
 });
