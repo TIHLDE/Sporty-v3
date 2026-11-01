@@ -48,7 +48,7 @@ import {
 	Trash2Icon,
 	TrophyIcon,
 } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { CheckboxField } from "@/components/checkbox-field";
@@ -104,43 +104,170 @@ function useAdminMutationOptions(message?: string) {
 }
 
 function Settings({ group }: { group: GroupDetails }) {
-	return (
-		<div className="grid grid-cols-1 gap-8">
-			<Link
-				to="/grupper/$groupId"
-				params={{ groupId: group.id }}
-				className="flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-			>
-				<ArrowLeftIcon className="size-4" />
-				{group.name}
-			</Link>
-			<h1 className="text-2xl font-semibold">Innstillinger</h1>
+	const isAdmin = group.canAdmin;
+	const isSubgroup = Boolean(group.parentId);
+	// Samme vilkår som seksjonene under, så menyen bare viser det som finnes på siden.
+	const sections = [
+		{ id: "gruppe", title: "Gruppe", show: isAdmin },
+		{ id: "medlemmer", title: "Medlemmer", show: true },
+		{ id: "posisjoner", title: "Posisjoner", show: isAdmin },
+		{ id: "kampfakta", title: "Kampfakta", show: isAdmin && !isSubgroup },
+		{
+			id: "vervhistorikk",
+			title: "Vervhistorikk",
+			show: isAdmin && !isSubgroup,
+		},
+		{ id: "undergrupper", title: "Undergrupper", show: isAdmin && !isSubgroup },
+		{
+			id: "undergruppe-medlemmer",
+			title: "Medlemmer i undergruppen",
+			show: isAdmin && isSubgroup,
+		},
+		{
+			id: "slett-undergruppe",
+			title: "Slett undergruppe",
+			show: isAdmin && isSubgroup,
+		},
+		{ id: "eksport", title: "Eksport", show: true },
+	].filter((section) => section.show);
+	const active = useActiveSection(sections.map((section) => section.id));
 
-			{group.canAdmin && <GroupDetailsSection group={group} />}
-			<MembersSection group={group} />
-			{group.canAdmin && <PositionsSection group={group} />}
-			{group.canAdmin && !group.parentId && <MatchFactsSection group={group} />}
-			{group.canAdmin && !group.parentId && <OfficesSection group={group} />}
-			{group.canAdmin && !group.parentId && <SubgroupsSection group={group} />}
-			{group.canAdmin && group.parentId && (
-				<SubgroupAdminSection group={group} />
-			)}
-			<ExportSection group={group} />
+	return (
+		<div className="flex w-full max-w-5xl gap-8">
+			<aside className="hidden w-48 shrink-0 lg:block">
+				<nav
+					aria-label="Seksjoner"
+					className="sticky top-20 grid gap-0.5 text-sm"
+				>
+					{sections.map((section) => (
+						<SectionLink
+							key={section.id}
+							section={section}
+							active={active === section.id}
+							className="rounded-md px-3 py-1.5"
+						/>
+					))}
+				</nav>
+			</aside>
+
+			<div className="grid min-w-0 flex-1 grid-cols-1 gap-8">
+				<Link
+					to="/grupper/$groupId"
+					params={{ groupId: group.id }}
+					className="flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+				>
+					<ArrowLeftIcon className="size-4" />
+					{group.name}
+				</Link>
+				<h1 className="text-2xl font-semibold">Innstillinger</h1>
+
+				{/* På små skjermer er menyen en rad under toppmenyen i stedet for en kolonne. */}
+				<nav
+					aria-label="Seksjoner"
+					className="sticky top-14 z-[5] -mx-4 -my-4 flex gap-1 overflow-x-auto border-b bg-background/90 px-4 py-2 text-sm backdrop-blur lg:hidden"
+				>
+					{sections.map((section) => (
+						<SectionLink
+							key={section.id}
+							section={section}
+							active={active === section.id}
+							className="shrink-0 rounded-full px-3 py-1"
+						/>
+					))}
+				</nav>
+
+				{isAdmin && <GroupDetailsSection group={group} />}
+				<MembersSection group={group} />
+				{isAdmin && <PositionsSection group={group} />}
+				{isAdmin && !isSubgroup && <MatchFactsSection group={group} />}
+				{isAdmin && !isSubgroup && <OfficesSection group={group} />}
+				{isAdmin && !isSubgroup && <SubgroupsSection group={group} />}
+				{isAdmin && isSubgroup && <SubgroupAdminSection group={group} />}
+				<ExportSection group={group} />
+			</div>
 		</div>
 	);
 }
 
+/** Lenke til en seksjon på siden. Ruller dit mykt og setter #id i adressen, så den kan deles. */
+function SectionLink({
+	section,
+	active,
+	className,
+}: {
+	section: { id: string; title: string };
+	active: boolean;
+	className: string;
+}) {
+	return (
+		<a
+			href={`#${section.id}`}
+			aria-current={active ? "location" : undefined}
+			onClick={(e) => {
+				e.preventDefault();
+				document
+					.getElementById(section.id)
+					?.scrollIntoView({ behavior: "smooth", block: "start" });
+				window.history.replaceState(null, "", `#${section.id}`);
+			}}
+			className={`${className} text-muted-foreground transition-colors hover:text-foreground aria-[current=location]:bg-muted aria-[current=location]:font-medium aria-[current=location]:text-foreground`}
+		>
+			{section.title}
+		</a>
+	);
+}
+
+/**
+ * Seksjonen man er i: den siste som har nådd toppen av skjermen (under toppmenyen). Helt nederst
+ * er det den siste, selv om den er for kort til å nå toppen.
+ */
+function useActiveSection(ids: string[]) {
+	const [active, setActive] = useState(ids[0]);
+	const key = ids.join(",");
+
+	useEffect(() => {
+		const sectionIds = key.split(",");
+		const update = () => {
+			let current = sectionIds[0];
+			for (const id of sectionIds) {
+				const top = document.getElementById(id)?.getBoundingClientRect().top;
+				if (top !== undefined && top <= 140) current = id;
+			}
+			const atBottom =
+				window.innerHeight + window.scrollY >=
+				document.documentElement.scrollHeight - 4;
+			setActive(atBottom ? sectionIds[sectionIds.length - 1] : current);
+		};
+		update();
+		window.addEventListener("scroll", update, { passive: true });
+		window.addEventListener("resize", update);
+		return () => {
+			window.removeEventListener("scroll", update);
+			window.removeEventListener("resize", update);
+		};
+	}, [key]);
+
+	return active;
+}
+
 function Section({
+	id,
 	title,
 	description,
 	children,
 }: {
+	/** Ankeret menyen til venstre (eller øverst på små skjermer) hopper til. */
+	id: string;
 	title: string;
 	description?: string;
 	children: ReactNode;
 }) {
 	return (
-		<section className="grid gap-4 rounded-xl border p-5">
+		<section
+			id={id}
+			// Plass til toppmenyen, og til seksjonsraden på små skjermer, når man hopper hit.
+			className="grid scroll-mt-32 gap-4 rounded-xl border p-5 lg:scroll-mt-20"
+		>
 			<div>
 				<h2 className="text-lg font-medium">{title}</h2>
 				{description && (
@@ -190,6 +317,7 @@ function OfficesSection({ group }: { group: GroupDetails }) {
 
 	return (
 		<Section
+			id="vervhistorikk"
 			title="Vervhistorikk"
 			description="Hvem som hadde hvilke verv i laget, periode for periode. Medlemmene ser historikken i appen og på nettsiden."
 		>
@@ -655,6 +783,7 @@ function GroupDetailsSection({ group }: { group: GroupDetails }) {
 
 	return (
 		<Section
+			id="gruppe"
 			title="Gruppe"
 			description={
 				group.logoUrl
@@ -722,6 +851,7 @@ function MembersSection({ group }: { group: GroupDetails }) {
 
 	return (
 		<Section
+			id="medlemmer"
 			title="Medlemmer"
 			description={group.canAdmin ? undefined : "Bare admin kan endre roller."}
 		>
@@ -928,6 +1058,7 @@ function PositionsSection({ group }: { group: GroupDetails }) {
 
 	return (
 		<Section
+			id="posisjoner"
 			title="Posisjoner"
 			description="Lag posisjonene selv, f.eks. Keeper og Spiss eller Kant og Linje."
 		>
@@ -1099,6 +1230,7 @@ function MatchFactsSection({ group }: { group: GroupDetails }) {
 
 	return (
 		<Section
+			id="kampfakta"
 			title="Kampfakta"
 			description="Resultat og hendelser som mål og kort på kampene, også i undergruppene. Sub-/admin registrerer dem på hver kamp."
 		>
@@ -1255,6 +1387,7 @@ function SubgroupsSection({ group }: { group: GroupDetails }) {
 	const [creating, setCreating] = useState(false);
 	return (
 		<Section
+			id="undergrupper"
 			title="Undergrupper"
 			description="F.eks. 11'er og 7'er, med medlemmer fra hovedgruppen."
 		>
@@ -1463,6 +1596,7 @@ function SubgroupAdminSection({ group }: { group: GroupDetails }) {
 	return (
 		<>
 			<Section
+				id="undergruppe-medlemmer"
 				title="Medlemmer i undergruppen"
 				description="De som tas ut, mister tilgangen til alt i undergruppen."
 			>
@@ -1493,6 +1627,7 @@ function SubgroupAdminSection({ group }: { group: GroupDetails }) {
 				</Button>
 			</Section>
 			<Section
+				id="slett-undergruppe"
 				title="Slett undergruppe"
 				description="Arrangementer, kunngjøringer, avstemninger og chatten i undergruppen slettes for godt."
 			>
@@ -1586,6 +1721,7 @@ function ExportSection({ group }: { group: GroupDetails }) {
 	const base = `/api/groups/${encodeURIComponent(group.id)}/export`;
 	return (
 		<Section
+			id="eksport"
 			title="Eksport"
 			description="Lastes ned som CSV, som kan åpnes i Excel, Numbers eller Google Regneark."
 		>
