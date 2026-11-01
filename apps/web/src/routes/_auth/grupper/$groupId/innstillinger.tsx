@@ -7,6 +7,13 @@ import type {
 	OfficePeriodInput,
 	Role,
 } from "@sporty/api/rest/types";
+import {
+	Accordion,
+	AccordionHeader,
+	AccordionItem,
+	AccordionPanel,
+	AccordionTrigger,
+} from "@sporty/ui/components/accordion";
 import { Badge } from "@sporty/ui/components/badge";
 import { Button, buttonVariants } from "@sporty/ui/components/button";
 import {
@@ -48,13 +55,7 @@ import {
 	Trash2Icon,
 	TrophyIcon,
 } from "lucide-react";
-import {
-	type ReactNode,
-	useEffect,
-	useLayoutEffect,
-	useRef,
-	useState,
-} from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { CheckboxField } from "@/components/checkbox-field";
@@ -112,66 +113,60 @@ function useAdminMutationOptions(message?: string) {
 function Settings({ group }: { group: GroupDetails }) {
 	const isAdmin = group.canAdmin;
 	const isSubgroup = Boolean(group.parentId);
-	// Samme vilkår som seksjonene under, så menyen bare viser det som finnes på siden.
-	const sections = [
-		{ id: "gruppe", title: "Gruppe", show: isAdmin },
-		{ id: "medlemmer", title: "Medlemmer", show: true },
-		{ id: "posisjoner", title: "Posisjoner", show: isAdmin },
-		{ id: "kampfakta", title: "Kampfakta", show: isAdmin && !isSubgroup },
-		{
-			id: "vervhistorikk",
-			title: "Vervhistorikk",
-			show: isAdmin && !isSubgroup,
-		},
-		{ id: "undergrupper", title: "Undergrupper", show: isAdmin && !isSubgroup },
-		{
-			id: "undergruppe-medlemmer",
-			title: "Medlemmer i undergruppen",
-			show: isAdmin && isSubgroup,
-		},
-		{
-			id: "slett-undergruppe",
-			title: "Slett undergruppe",
-			show: isAdmin && isSubgroup,
-		},
-		{ id: "eksport", title: "Eksport", show: true },
-	].filter((section) => section.show);
-	const { active, goTo } = useSectionNavigation(
-		sections.map((section) => section.id),
-	);
+	// Samme vilkår som seksjonene under, til «Åpne alle».
+	const sectionIds = [
+		isAdmin && "gruppe",
+		"medlemmer",
+		isAdmin && "posisjoner",
+		isAdmin && !isSubgroup && "kampfakta",
+		isAdmin && !isSubgroup && "vervhistorikk",
+		isAdmin && !isSubgroup && "undergrupper",
+		isAdmin && isSubgroup && "undergruppe-medlemmer",
+		isAdmin && isSubgroup && "slett-undergruppe",
+		"eksport",
+	].filter((id): id is string => Boolean(id));
+	const [open, setOpen] = useState<string[]>([]);
+	const allOpen = sectionIds.every((id) => open.includes(id));
+
+	// En lenke til …/innstillinger#vervhistorikk åpner den seksjonen og ruller dit. Adressen finnes
+	// bare i nettleseren, så det skjer etter første tegning.
+	useEffect(() => {
+		const id = window.location.hash.slice(1);
+		if (!id) return;
+		const frame = requestAnimationFrame(() => {
+			setOpen([id]);
+			document.getElementById(id)?.scrollIntoView({ block: "start" });
+		});
+		return () => cancelAnimationFrame(frame);
+	}, []);
 
 	return (
-		<div className="flex w-full max-w-5xl gap-8">
-			<aside className="hidden w-48 shrink-0 lg:block">
-				<SectionNav
-					sections={sections}
-					active={active}
-					onSelect={goTo}
-					orientation="vertical"
-					className="sticky top-20 grid gap-0.5"
-				/>
-			</aside>
-
-			<div className="grid min-w-0 flex-1 grid-cols-1 gap-8">
-				<Link
-					to="/grupper/$groupId"
-					params={{ groupId: group.id }}
-					className="flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-				>
-					<ArrowLeftIcon className="size-4" />
-					{group.name}
-				</Link>
+		<div className="grid w-full max-w-4xl grid-cols-1 gap-8">
+			<Link
+				to="/grupper/$groupId"
+				params={{ groupId: group.id }}
+				className="flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+			>
+				<ArrowLeftIcon className="size-4" />
+				{group.name}
+			</Link>
+			<div className="flex flex-wrap items-center justify-between gap-2">
 				<h1 className="text-2xl font-semibold">Innstillinger</h1>
+				<Button
+					variant="ghost"
+					size="sm"
+					onClick={() => setOpen(allOpen ? [] : sectionIds)}
+				>
+					{allOpen ? "Lukk alle" : "Åpne alle"}
+				</Button>
+			</div>
 
-				{/* På små skjermer er menyen en rad under toppmenyen i stedet for en kolonne. */}
-				<SectionNav
-					sections={sections}
-					active={active}
-					onSelect={goTo}
-					orientation="horizontal"
-					className="sticky top-14 z-[5] -mx-4 -my-4 flex gap-1 overflow-x-auto border-b bg-background/90 px-4 py-2 backdrop-blur lg:hidden"
-				/>
-
+			<Accordion
+				multiple
+				value={open}
+				onValueChange={(value) => setOpen(value as string[])}
+				className="gap-3"
+			>
 				{isAdmin && <GroupDetailsSection group={group} />}
 				<MembersSection group={group} />
 				{isAdmin && <PositionsSection group={group} />}
@@ -180,211 +175,49 @@ function Settings({ group }: { group: GroupDetails }) {
 				{isAdmin && !isSubgroup && <SubgroupsSection group={group} />}
 				{isAdmin && isSubgroup && <SubgroupAdminSection group={group} />}
 				<ExportSection group={group} />
-			</div>
+			</Accordion>
 		</div>
 	);
 }
 
-const prefersReducedMotion = () =>
-	window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
 /**
- * Menyen med seksjonene. Markeringen er ett felles element som glir til den aktive lenken, i stedet
- * for at hver lenke skifter bakgrunn. Liggende (små skjermer) rulles raden så den aktive er synlig.
+ * Én seksjon på siden, som kan foldes ut og sammen. Innholdet ligger i siden også når den er
+ * lukket (`hiddenUntilFound`), så søk i nettleseren (⌘F) finner det og åpner seksjonen.
  */
-function SectionNav({
-	sections,
-	active,
-	onSelect,
-	orientation,
-	className,
-}: {
-	sections: { id: string; title: string }[];
-	active: string;
-	onSelect: (id: string) => void;
-	orientation: "vertical" | "horizontal";
-	className: string;
-}) {
-	const navRef = useRef<HTMLElement>(null);
-	const links = useRef(new Map<string, HTMLAnchorElement>());
-	const [indicator, setIndicator] = useState<{
-		x: number;
-		y: number;
-		width: number;
-		height: number;
-	} | null>(null);
-	// Første plassering skal ikke animeres inn fra hjørnet.
-	const [animate, setAnimate] = useState(false);
-
-	useLayoutEffect(() => {
-		const measure = () => {
-			const link = links.current.get(active);
-			// Skjult meny (feil skjermstørrelse) har ingen mål.
-			if (!link || link.offsetWidth === 0) return;
-			setIndicator({
-				x: link.offsetLeft,
-				y: link.offsetTop,
-				width: link.offsetWidth,
-				height: link.offsetHeight,
-			});
-			const nav = navRef.current;
-			if (orientation === "horizontal" && nav) {
-				nav.scrollTo({
-					left: link.offsetLeft - (nav.clientWidth - link.offsetWidth) / 2,
-					behavior: prefersReducedMotion() ? "auto" : "smooth",
-				});
-			}
-		};
-		measure();
-		window.addEventListener("resize", measure);
-		return () => window.removeEventListener("resize", measure);
-	}, [active, orientation, sections.length]);
-
-	useEffect(() => {
-		if (!indicator || animate) return;
-		const frame = requestAnimationFrame(() => setAnimate(true));
-		return () => cancelAnimationFrame(frame);
-	}, [indicator, animate]);
-
-	const vertical = orientation === "vertical";
-	return (
-		<nav ref={navRef} aria-label="Seksjoner" className={`${className} text-sm`}>
-			{indicator && (
-				<span
-					aria-hidden
-					className={`pointer-events-none absolute top-0 left-0 bg-muted ${vertical ? "rounded-md" : "rounded-full"} ${animate ? "transition-[transform,width,height] duration-300 ease-out motion-reduce:transition-none" : ""}`}
-					style={{
-						transform: `translate(${indicator.x}px, ${indicator.y}px)`,
-						width: indicator.width,
-						height: indicator.height,
-					}}
-				/>
-			)}
-			{sections.map((section) => (
-				<a
-					key={section.id}
-					ref={(el) => {
-						if (el) links.current.set(section.id, el);
-						else links.current.delete(section.id);
-					}}
-					href={`#${section.id}`}
-					aria-current={active === section.id ? "location" : undefined}
-					onClick={(e) => {
-						e.preventDefault();
-						onSelect(section.id);
-					}}
-					className={`relative ${vertical ? "rounded-md px-3 py-1.5" : "shrink-0 rounded-full px-3 py-1"} text-muted-foreground transition-colors duration-300 hover:text-foreground aria-[current=location]:text-foreground`}
-				>
-					{section.title}
-				</a>
-			))}
-		</nav>
-	);
-}
-
-/**
- * Hvilken seksjon man er i, og `goTo` for å rulle til en. Under scrollingen følger markeringen
- * siden: den siste seksjonen som har nådd toppen av skjermen (under toppmenyen), eller den siste
- * helt nederst. Etter et klikk står markeringen på målet hele veien, i stedet for å hoppe gjennom
- * seksjonene i mellom, og målet lyser kort opp når siden er fremme.
- */
-function useSectionNavigation(ids: string[]) {
-	const [active, setActive] = useState(ids[0]);
-	// Satt mens siden ruller til en seksjon man har klikket på.
-	const target = useRef<string | null>(null);
-	const key = ids.join(",");
-
-	useEffect(() => {
-		const sectionIds = key.split(",");
-		const update = () => {
-			if (target.current) return;
-			let current = sectionIds[0];
-			for (const id of sectionIds) {
-				const top = document.getElementById(id)?.getBoundingClientRect().top;
-				if (top !== undefined && top <= 140) current = id;
-			}
-			const atBottom =
-				window.innerHeight + window.scrollY >=
-				document.documentElement.scrollHeight - 4;
-			setActive(atBottom ? sectionIds[sectionIds.length - 1] : current);
-		};
-		update();
-		window.addEventListener("scroll", update, { passive: true });
-		window.addEventListener("resize", update);
-		return () => {
-			window.removeEventListener("scroll", update);
-			window.removeEventListener("resize", update);
-		};
-	}, [key]);
-
-	const goTo = (id: string) => {
-		const section = document.getElementById(id);
-		if (!section) return;
-		const reduceMotion = prefersReducedMotion();
-		target.current = id;
-		setActive(id);
-		window.history.replaceState(null, "", `#${id}`);
-		section.scrollIntoView({
-			behavior: reduceMotion ? "auto" : "smooth",
-			block: "start",
-		});
-
-		// Fremme når det ikke har kommet scroll-hendelser på en stund. `scrollend` finnes ikke i
-		// alle nettlesere, og kommer ikke i det hele tatt hvis siden allerede står der.
-		let idle = 0;
-		const arrived = () => {
-			window.removeEventListener("scroll", wait);
-			// Et nyere klikk har tatt over.
-			if (target.current !== id) return;
-			target.current = null;
-			if (!reduceMotion) {
-				section.animate(
-					[
-						{ boxShadow: "0 0 0 0 transparent" },
-						{ boxShadow: "0 0 0 3px var(--ring)", offset: 0.2 },
-						{ boxShadow: "0 0 0 0 transparent" },
-					],
-					{ duration: 1200, easing: "ease-out" },
-				);
-			}
-		};
-		const wait = () => {
-			window.clearTimeout(idle);
-			idle = window.setTimeout(arrived, 120);
-		};
-		window.addEventListener("scroll", wait, { passive: true });
-		wait();
-	};
-
-	return { active, goTo };
-}
-
 function Section({
 	id,
 	title,
 	description,
 	children,
 }: {
-	/** Ankeret menyen til venstre (eller øverst på små skjermer) hopper til. */
+	/** Verdien i accordionen, og ankeret i lenker som …/innstillinger#vervhistorikk. */
 	id: string;
 	title: string;
 	description?: string;
 	children: ReactNode;
 }) {
 	return (
-		<section
+		<AccordionItem
+			value={id}
 			id={id}
-			// Plass til toppmenyen, og til seksjonsraden på små skjermer, når man hopper hit.
-			className="grid scroll-mt-32 gap-4 rounded-xl border p-5 lg:scroll-mt-20"
+			className="scroll-mt-20 rounded-xl border"
 		>
-			<div>
-				<h2 className="text-lg font-medium">{title}</h2>
-				{description && (
-					<p className="text-sm text-muted-foreground">{description}</p>
-				)}
-			</div>
-			{children}
-		</section>
+			<AccordionHeader>
+				<AccordionTrigger className="rounded-xl p-5 hover:bg-muted/40">
+					<span className="grid gap-0.5">
+						<span className="text-lg font-medium">{title}</span>
+						{description && (
+							<span className="text-sm font-normal text-muted-foreground">
+								{description}
+							</span>
+						)}
+					</span>
+				</AccordionTrigger>
+			</AccordionHeader>
+			<AccordionPanel hiddenUntilFound className="grid gap-4 px-5 pb-5">
+				{children}
+			</AccordionPanel>
+		</AccordionItem>
 	);
 }
 
