@@ -16,7 +16,10 @@ import {
 import { prisma } from "../../../server/prisma";
 import type { CreateEventInput } from "../../../types";
 
-/** ?when=upcoming (standard) eller ?when=past */
+/**
+ * ?when=upcoming (standard) eller ?when=past. I en hovedgruppe kommer også arrangementene i
+ * undergruppene brukeren er med i (f.eks. 11er-kamper), men ikke de i andre undergrupper.
+ */
 export const GET = handler<{ groupId: string }>(
 	async (request, { groupId }) => {
 		const userId = await getUserId(request);
@@ -24,7 +27,22 @@ export const GET = handler<{ groupId: string }>(
 		const past = new URL(request.url).searchParams.get("when") === "past";
 
 		const events = await prisma.event.findMany({
-			where: { groupId, ...(past ? pastEventsWhere() : upcomingEventsWhere()) },
+			where: {
+				AND: [
+					{
+						OR: [
+							{ groupId },
+							{
+								group: {
+									parentId: groupId,
+									memberships: { some: { userId } },
+								},
+							},
+						],
+					},
+					past ? pastEventsWhere() : upcomingEventsWhere(),
+				],
+			},
 			include: eventInclude,
 			orderBy: { startsAt: past ? "desc" : "asc" },
 		});

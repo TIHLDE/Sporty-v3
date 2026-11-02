@@ -14,7 +14,10 @@ export const GET = handler(async (request) => {
 			userId,
 			group: { parentId: null },
 			OR: [
-				{ role: { in: ["admin", "subadmin"] }, group: { photonSlug: null } },
+				{
+					role: { in: ["admin", "index", "subadmin"] },
+					group: { photonSlug: null },
+				},
 				{ group: { photonSlug: { not: null }, photonFinesActivated: true } },
 			],
 		},

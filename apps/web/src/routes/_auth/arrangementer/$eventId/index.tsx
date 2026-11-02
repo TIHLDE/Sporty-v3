@@ -1,4 +1,4 @@
-import { formatEventRange } from "@sporty/api/rest/lib/dates";
+import { formatEventRange, formatRelative } from "@sporty/api/rest/lib/dates";
 import type {
 	Event,
 	GroupDetails,
@@ -28,17 +28,25 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
 	ArrowLeftIcon,
 	ClockIcon,
-	GavelIcon,
 	MapPinIcon,
 	PencilIcon,
 	Trash2Icon,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import {
+	CollectiveFineButton,
+	canGiveCollectiveFine,
+} from "@/components/collective-fine-button";
 import { AnswerButtons } from "@/components/event-card";
 import { Markdown } from "@/components/markdown";
 import { PageState } from "@/components/page-state";
+import {
+	ChoosePositionPrompt,
+	ParticipantsByPosition,
+	eventPositions,
+} from "@/components/positions";
 import {
 	answeringClosed,
 	EVENT_TYPE_LABEL,
@@ -54,7 +62,21 @@ export const Route = createFileRoute("/_auth/arrangementer/$eventId/")({
 function EventComponent() {
 	const { eventId } = Route.useParams();
 	const trpc = useTRPC();
+	const queryClient = useQueryClient();
 	const event = useQuery(trpc.events.get.queryOptions({ eventId }));
+
+	// Registrer at arrangementet er åpnet, så sub-/admin ser hvem som har sett det uten å svare.
+	const { mutate: markSeen } = useMutation(
+		trpc.events.markSeen.mutationOptions({
+			onSuccess: () =>
+				queryClient.invalidateQueries({
+					queryKey: trpc.events.get.queryKey({ eventId }),
+				}),
+		}),
+	);
+	useEffect(() => {
+		markSeen({ eventId });
+	}, [eventId, markSeen]);
 
 	return (
 		<PageState query={event}>{(data) => <EventView event={data} />}</PageState>
@@ -120,6 +142,19 @@ function EventView({ event }: { event: Event }) {
 							Svarfrist {formatEventRange(event.signupDeadline, null)}
 						</p>
 					)}
+					{event.maxAttendees !== null && (
+						<p
+							className={
+								kommer.length >= event.maxAttendees
+									? "text-sm font-medium text-destructive"
+									: "text-sm text-muted-foreground"
+							}
+						>
+							{kommer.length >= event.maxAttendees
+								? `Fullt: ${kommer.length} av ${event.maxAttendees} plasser er tatt`
+								: `${kommer.length} av ${event.maxAttendees} plasser er tatt`}
+						</p>
+					)}
 				</div>
 				<div className="flex flex-col items-end gap-2">
 					{event.canManage && !isPast && (
@@ -141,6 +176,7 @@ function EventView({ event }: { event: Event }) {
 						<AnswerButtons
 							eventId={event.id}
 							myStatus={myId ? event.attendance[myId] : undefined}
+							myReason={myId ? event.absenceReasons[myId] : undefined}
 						/>
 					)}
 				</div>
@@ -153,42 +189,82 @@ function EventView({ event }: { event: Event }) {
 				</p>
 			)}
 
+			{myId &&
+				isMember &&
+				!isPast &&
+				group.data &&
+				eventPositions(event, group.data).length > 0 &&
+				!group.data.members.find((m) => m.user.id === myId)?.position && (
+					<ChoosePositionPrompt group={group.data} myId={myId} />
+				)}
+
 			{event.type === "kamp" && started && (
 				<MatchFacts event={event} group={group.data} />
 			)}
 			{event.description && <Markdown>{event.description}</Markdown>}
 
 			<div className="grid gap-4 sm:grid-cols-3">
-				<Participants title="Kommer" ids={kommer} group={group.data} />
-				<Participants title="Kommer ikke" ids={kommerIkke} group={group.data} />
-				<Participants title="Ikke svart" ids={ubesvart} group={group.data} />
+				{group.data && eventPositions(event, group.data).length > 0 ? (
+					<ParticipantsByPosition
+						title="Kommer"
+						ids={kommer}
+						group={group.data}
+					/>
+				) : (
+					<Participants title="Kommer" ids={kommer} group={group.data} />
+				)}
+				<Participants
+					title="Kommer ikke"
+					ids={kommerIkke}
+					group={group.data}
+					reasons={event.absenceReasons}
+				/>
+				<Participants
+					title="Ikke svart"
+					ids={ubesvart}
+					group={group.data}
+					reasons={event.canManage ? seenLabels(event, ubesvart) : undefined}
+				/>
 			</div>
 
-			{event.canGiveFines &&
-				closed &&
-				ubesvart.length > 0 &&
-				!event.collectiveFineGiven && (
-					<CollectiveFineButton eventId={event.id} count={ubesvart.length} />
-				)}
+			{canGiveCollectiveFine(event, ubesvart.length) && (
+				<CollectiveFineButton eventId={event.id} count={ubesvart.length} />
+			)}
 		</div>
 	);
 }
 
+/** For sub-/admin under «Ikke svart»: om hver person har åpnet arrangementet, og når. */
+function seenLabels(event: Event, ids: string[]) {
+	return Object.fromEntries(
+		ids.map((id) => {
+			const seenAt = event.seenAt[id];
+			return [id, seenAt ? `Sett ${formatRelative(seenAt)}` : "Ikke sett"];
+		}),
+	);
+}
+
+/**
+ * `reasons` vises under navnet: begrunnelsen under «Kommer ikke», og om man har sett
+ * arrangementet under «Ikke svart» (bare for sub-/admin).
+ */
 function Participants({
 	title,
 	ids,
 	group,
+	reasons,
 }: {
 	title: string;
 	ids: string[];
 	group: GroupDetails | undefined;
+	reasons?: Record<string, string>;
 }) {
 	const names = new Map(
 		group?.members.map((m) => [m.user.id, m.user.name]) ?? [],
 	);
 	const sorted = ids
-		.map((id) => names.get(id) ?? "Ukjent")
-		.sort((a, b) => a.localeCompare(b));
+		.map((id) => ({ name: names.get(id) ?? "Ukjent", reason: reasons?.[id] }))
+		.sort((a, b) => a.name.localeCompare(b.name));
 
 	return (
 		<section className="rounded-xl border p-4">
@@ -199,8 +275,15 @@ function Participants({
 				<p className="text-sm text-muted-foreground">Ingen</p>
 			) : (
 				<ul className="grid gap-1 text-sm">
-					{sorted.map((name, index) => (
-						<li key={`${name}-${index}`}>{name}</li>
+					{sorted.map(({ name, reason }, index) => (
+						<li key={`${name}-${index}`}>
+							{name}
+							{reason && (
+								<span className="block text-xs text-muted-foreground">
+									{reason}
+								</span>
+							)}
+						</li>
 					))}
 				</ul>
 			)}
@@ -513,45 +596,5 @@ function ScoreField({
 				}
 			/>
 		</div>
-	);
-}
-
-/** (Sub-/admin) Én bot til alle som ikke har svart. Kan bare gis én gang. */
-function CollectiveFineButton({
-	eventId,
-	count,
-}: {
-	eventId: string;
-	count: number;
-}) {
-	const trpc = useTRPC();
-	const queryClient = useQueryClient();
-	const collectiveFine = useMutation(
-		trpc.events.collectiveFine.mutationOptions({
-			onSuccess: ({ count: given }) => {
-				queryClient.invalidateQueries({ queryKey: trpc.events.pathKey() });
-				queryClient.invalidateQueries({ queryKey: trpc.fines.pathKey() });
-				toast.success(
-					`Fellesbot gitt: ${given} ${given === 1 ? "medlem" : "medlemmer"} fikk 1 bot.`,
-				);
-			},
-			onError: (error) => toast.error(error.message),
-		}),
-	);
-
-	return (
-		<Button
-			variant="outline"
-			className="justify-self-start border-destructive text-destructive"
-			disabled={collectiveFine.isPending}
-			onClick={() =>
-				window.confirm(
-					`Gi fellesbot? ${count} medlemmer som ikke har svart får 1 bot hver.`,
-				) && collectiveFine.mutate({ eventId })
-			}
-		>
-			<GavelIcon />
-			Gi fellesbot ({count})
-		</Button>
 	);
 }

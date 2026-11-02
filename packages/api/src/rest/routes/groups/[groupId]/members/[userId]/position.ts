@@ -4,14 +4,19 @@ import {
 	handler,
 	readJson,
 	requireManagerOrParent,
+	requireMember,
 } from "../../../../../server/http";
 import { prisma } from "../../../../../server/prisma";
 
-/** (Sub-/admin) Sett posisjonen til et medlem, fra gruppens posisjonsliste. `null` fjerner den. */
+/**
+ * Sett posisjonen til et medlem, fra gruppens posisjonsliste. `null` fjerner den. Medlemmet kan
+ * velge sin egen, sub-/admin kan sette den for alle.
+ */
 export const PUT = handler<{ groupId: string; userId: string }>(
 	async (request, { groupId, userId: memberId }) => {
 		const userId = await getUserId(request);
-		await requireManagerOrParent(userId, groupId);
+		if (memberId === userId) await requireMember(userId, groupId);
+		else await requireManagerOrParent(userId, groupId);
 		const { positionId } = await readJson<{ positionId: string | null }>(
 			request,
 		);

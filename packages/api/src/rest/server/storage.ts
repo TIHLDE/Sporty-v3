@@ -6,9 +6,12 @@ import path from "node:path";
 
 const UPLOAD_DIR = path.join(process.cwd(), "storage", "uploads");
 
-export async function saveFile(id: string, data: ArrayBuffer) {
+export async function saveFile(id: string, data: ArrayBuffer | Uint8Array) {
 	await mkdir(UPLOAD_DIR, { recursive: true });
-	await writeFile(path.join(UPLOAD_DIR, id), Buffer.from(data));
+	await writeFile(
+		path.join(UPLOAD_DIR, id),
+		data instanceof Uint8Array ? data : Buffer.from(data),
+	);
 }
 
 export async function readStoredFile(id: string) {

@@ -52,7 +52,9 @@ export function summarize(event: Event) {
 }
 
 const isManager = (group: Pick<Group, "myRole">) =>
-	group.myRole === "admin" || group.myRole === "subadmin";
+	group.myRole === "admin" ||
+	group.myRole === "index" ||
+	group.myRole === "subadmin";
 
 /**
  * Gruppene man kan lage arrangement for fra gruppesiden. Sub-/admin i hovedgruppen kan lage for

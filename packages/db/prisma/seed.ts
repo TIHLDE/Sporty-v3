@@ -19,7 +19,7 @@ async function main() {
   await prisma.$executeRawUnsafe(`
     TRUNCATE "Person", "Group", "Membership", "Event", "Attendance", "Announcement", "Poll",
       "PollOption", "PollVote", "Law", "Fine", "PaymentRequest", "PaymentConfirmation",
-      "GroupFile", "Notification", "Conversation", "ConversationMember", "Message", "Place", "PollComment", "Upload", "AnnouncementComment", "GroupPosition", "FineRequest", "PushToken", "NotificationSettings", "MatchStatType", "MatchStat" CASCADE
+      "GroupFile", "Notification", "Conversation", "ConversationMember", "Message", "Place", "PollComment", "Upload", "AnnouncementComment", "GroupPosition", "FineRequest", "PushToken", "NotificationSettings", "MatchStatType", "MatchStat", "GroupOffice", "OfficePeriod", "OfficeHolder" CASCADE
   `);
 
   await prisma.person.createMany({ data: data.users });
@@ -43,6 +43,32 @@ async function main() {
   await prisma.membership.createMany({ data: data.memberships });
   await prisma.law.createMany({ data: data.laws });
 
+  // Vervhistorikk for Pythons Herrer: i fjor og i år, så én av periodene gjelder nå.
+  const offices = ['Hovedtrener', 'Lagleder', 'Botsjef', 'Sosialansvarlig'];
+  await prisma.groupOffice.createMany({
+    data: offices.map((name) => ({ id: `herrer-${name.toLowerCase()}`, groupId: 'herrer', name })),
+  });
+  const year = new Date().getFullYear();
+  const officeHistory: [number, Record<string, string[]>][] = [
+    [year - 1, { Hovedtrener: ['u3'], Lagleder: ['u1'], Botsjef: ['u5', 'u7'] }],
+    [year, { Hovedtrener: ['u3'], Lagleder: ['u1'], Botsjef: ['u9'], Sosialansvarlig: ['u11'] }],
+  ];
+  for (const [periodYear, holders] of officeHistory) {
+    await prisma.officePeriod.create({
+      data: {
+        groupId: 'herrer',
+        name: `Sesongen ${periodYear}`,
+        startsOn: new Date(`${periodYear}-01-01`),
+        endsOn: new Date(`${periodYear}-12-31`),
+        holders: {
+          create: Object.entries(holders).flatMap(([name, userIds]) =>
+            userIds.map((userId) => ({ officeId: `herrer-${name.toLowerCase()}`, userId })),
+          ),
+        },
+      },
+    });
+  }
+
   await prisma.place.createMany({ data: data.places.map((place) => ({ ...place, groupId: null })) });
 
   for (const event of data.events) {
@@ -58,7 +84,11 @@ async function main() {
         startsAt: new Date(event.start),
         endsAt: event.end ? new Date(event.end) : null,
         attendances: {
-          create: Object.entries(event.attendance).map(([userId, status]) => ({ userId, status })),
+          create: Object.entries(event.attendance).map(([userId, status]) => ({
+            userId,
+            status,
+            reason: status === "kommer_ikke" ? "Har eksamen" : "",
+          })),
         },
       },
     });

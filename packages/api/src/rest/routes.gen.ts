@@ -7,6 +7,8 @@ import * as r40 from "./routes/announcements/index";
 import * as r41 from "./routes/contacts";
 import * as r34 from "./routes/conversations/[conversationId]/index";
 import * as r7 from "./routes/conversations/[conversationId]/messages";
+import * as rMessage from "./routes/conversations/[conversationId]/messages/[messageId]/index";
+import * as rMessageReactions from "./routes/conversations/[conversationId]/messages/[messageId]/reactions";
 import * as r8 from "./routes/conversations/[conversationId]/read";
 import * as r26 from "./routes/conversations/direct";
 import * as r42 from "./routes/conversations/index";
@@ -16,11 +18,13 @@ import * as r35 from "./routes/events/[eventId]/index";
 import * as rMatchStat from "./routes/events/[eventId]/match-facts/[statId]";
 import * as rMatchFacts from "./routes/events/[eventId]/match-facts/index";
 import * as r11 from "./routes/events/[eventId]/result";
+import * as rEventSeen from "./routes/events/[eventId]/seen";
 import * as r43 from "./routes/events/index";
 import * as r36 from "./routes/fines/[fineId]";
 import * as rFineImage from "./routes/fines/[fineId]/image";
 import * as r44 from "./routes/fines/index";
 import * as r27 from "./routes/fines/mine";
+import * as rSnitches from "./routes/fines/snitches";
 import * as r12 from "./routes/groups/[groupId]/announcements";
 import * as r13 from "./routes/groups/[groupId]/events";
 import * as r3 from "./routes/groups/[groupId]/export/attendance";
@@ -34,11 +38,18 @@ import * as rMatchStatTypes from "./routes/groups/[groupId]/match-stat-types/ind
 import * as r0 from "./routes/groups/[groupId]/members/[userId]/inactive";
 import * as r1 from "./routes/groups/[groupId]/members/[userId]/position";
 import * as r2 from "./routes/groups/[groupId]/members/[userId]/role";
+import * as rMemberSubgroups from "./routes/groups/[groupId]/members/[userId]/subgroups";
 import * as r17 from "./routes/groups/[groupId]/members/index";
+import * as rOfficePeriodHolders from "./routes/groups/[groupId]/office-periods/[periodId]/holders";
+import * as rOfficePeriod from "./routes/groups/[groupId]/office-periods/[periodId]/index";
+import * as rOfficePeriods from "./routes/groups/[groupId]/office-periods/index";
+import * as rOffice from "./routes/groups/[groupId]/offices/[officeId]";
+import * as rOffices from "./routes/groups/[groupId]/offices/index";
 import * as r18 from "./routes/groups/[groupId]/payments";
 import * as r19 from "./routes/groups/[groupId]/polls";
 import * as r5 from "./routes/groups/[groupId]/positions/[positionId]";
 import * as r20 from "./routes/groups/[groupId]/positions/index";
+import * as rGroupStats from "./routes/groups/[groupId]/stats";
 import * as r21 from "./routes/groups/[groupId]/subgroups";
 import * as r45 from "./routes/groups/index";
 import * as r28 from "./routes/groups/managed";
@@ -48,6 +59,7 @@ import * as r29 from "./routes/me/settings";
 import * as r22 from "./routes/notifications/[notificationId]/read";
 import * as r48 from "./routes/notifications/index";
 import * as r30 from "./routes/notifications/read-all";
+import * as rPaymentConfirmation from "./routes/payments/[paymentId]/confirmations/[userId]";
 import * as r23 from "./routes/payments/[paymentId]/paid";
 import * as r49 from "./routes/places/index";
 import * as r31 from "./routes/places/search";
@@ -66,21 +78,43 @@ export const routes = [
 	{ pattern: "/fines/:fineId/image", module: rFineImage },
 	{ pattern: "/groups/:groupId/members/:userId/inactive", module: r0 },
 	{ pattern: "/groups/:groupId/members/:userId/position", module: r1 },
+	{
+		pattern: "/groups/:groupId/members/:userId/subgroups",
+		module: rMemberSubgroups,
+	},
 	{ pattern: "/groups/:groupId/members/:userId/role", module: r2 },
 	{ pattern: "/groups/:groupId/export/attendance", module: r3 },
 	{ pattern: "/groups/:groupId/export/results", module: r4 },
+	{
+		pattern: "/groups/:groupId/office-periods/:periodId/holders",
+		module: rOfficePeriodHolders,
+	},
 	{ pattern: "/groups/:groupId/positions/:positionId", module: r5 },
+	{ pattern: "/groups/:groupId/offices/:officeId", module: rOffice },
+	{
+		pattern: "/groups/:groupId/office-periods/:periodId",
+		module: rOfficePeriod,
+	},
 	{
 		pattern: "/groups/:groupId/match-stat-types/:typeId",
 		module: rMatchStatType,
 	},
 	{ pattern: "/events/:eventId/match-facts/:statId", module: rMatchStat },
+	{
+		pattern: "/conversations/:conversationId/messages/:messageId/reactions",
+		module: rMessageReactions,
+	},
+	{
+		pattern: "/conversations/:conversationId/messages/:messageId",
+		module: rMessage,
+	},
 	{ pattern: "/announcements/:announcementId/comments", module: r6 },
 	{ pattern: "/conversations/:conversationId/messages", module: r7 },
 	{ pattern: "/conversations/:conversationId/read", module: r8 },
 	{ pattern: "/events/:eventId/attendance", module: r9 },
 	{ pattern: "/events/:eventId/collective-fine", module: r10 },
 	{ pattern: "/events/:eventId/result", module: r11 },
+	{ pattern: "/events/:eventId/seen", module: rEventSeen },
 	{ pattern: "/events/:eventId/match-facts", module: rMatchFacts },
 	{ pattern: "/groups/:groupId/announcements", module: r12 },
 	{ pattern: "/groups/:groupId/events", module: r13 },
@@ -91,14 +125,22 @@ export const routes = [
 	{ pattern: "/groups/:groupId/payments", module: r18 },
 	{ pattern: "/groups/:groupId/polls", module: r19 },
 	{ pattern: "/groups/:groupId/positions", module: r20 },
+	{ pattern: "/groups/:groupId/offices", module: rOffices },
+	{ pattern: "/groups/:groupId/office-periods", module: rOfficePeriods },
+	{ pattern: "/groups/:groupId/stats", module: rGroupStats },
 	{ pattern: "/groups/:groupId/match-stat-types", module: rMatchStatTypes },
 	{ pattern: "/groups/:groupId/subgroups", module: r21 },
 	{ pattern: "/notifications/:notificationId/read", module: r22 },
+	{
+		pattern: "/payments/:paymentId/confirmations/:userId",
+		module: rPaymentConfirmation,
+	},
 	{ pattern: "/payments/:paymentId/paid", module: r23 },
 	{ pattern: "/polls/:pollId/comments", module: r24 },
 	{ pattern: "/polls/:pollId/vote", module: r25 },
 	{ pattern: "/conversations/direct", module: r26 },
 	{ pattern: "/fines/mine", module: r27 },
+	{ pattern: "/fines/snitches", module: rSnitches },
 	{ pattern: "/groups/managed", module: r28 },
 	{ pattern: "/me/settings", module: r29 },
 	{ pattern: "/notifications/read-all", module: r30 },

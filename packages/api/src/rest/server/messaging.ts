@@ -63,6 +63,36 @@ export async function requireConversation(
 	return conversation;
 }
 
+/**
+ * Tidspunktet alle de andre i samtalen har lest frem til, eller null hvis noen ikke har åpnet den.
+ * I en gruppechat teller alle medlemmene av gruppen, også de som aldri har åpnet chatten.
+ */
+export async function othersReadAt(
+	conversation: ConversationRow,
+	userId: string,
+) {
+	const others = conversation.groupId
+		? (
+				await prisma.membership.findMany({
+					where: { groupId: conversation.groupId, userId: { not: userId } },
+					select: { userId: true },
+				})
+			).map((m) => m.userId)
+		: conversation.members.map((m) => m.userId).filter((id) => id !== userId);
+	if (others.length === 0) return null;
+
+	const readAt = new Map(
+		conversation.members.map((m) => [m.userId, m.lastReadAt]),
+	);
+	let earliest: Date | null = null;
+	for (const id of others) {
+		const at = readAt.get(id);
+		if (!at) return null;
+		if (!earliest || at < earliest) earliest = at;
+	}
+	return earliest?.toISOString() ?? null;
+}
+
 /** Antall uleste meldinger fra andre siden brukeren sist leste samtalen. */
 export function countUnread(conversation: ConversationRow, userId: string) {
 	const lastReadAt =
@@ -94,16 +124,49 @@ export function describeConversation(
 	};
 }
 
-export const messageInclude = { sender: true } satisfies Prisma.MessageInclude;
+export const MAX_MESSAGE_LENGTH = 4000;
 
+export const messageInclude = {
+	sender: true,
+	replyTo: { include: { sender: { select: { name: true } } } },
+	reactions: { include: { user: true }, orderBy: { createdAt: "asc" } },
+} satisfies Prisma.MessageInclude;
+
+/** `userId` er den som ser på meldingen, så `mine` blir riktig på reaksjonene. */
 export function toMessage(
 	message: Prisma.MessageGetPayload<{ include: typeof messageInclude }>,
+	userId: string,
 ): Dto.Message {
+	const { replyTo } = message;
+	const reactions = new Map<string, Dto.MessageReaction>();
+	for (const r of message.reactions) {
+		const reaction = reactions.get(r.emoji) ?? {
+			emoji: r.emoji,
+			count: 0,
+			mine: false,
+			users: [],
+		};
+		reaction.count++;
+		reaction.mine ||= r.userId === userId;
+		reaction.users.push(toUser(r.user));
+		reactions.set(r.emoji, reaction);
+	}
 	return {
 		id: message.id,
 		conversationId: message.conversationId,
 		sender: toUser(message.sender),
 		body: message.body,
 		sentAt: message.sentAt.toISOString(),
+		deleted: message.deletedAt !== null,
+		edited: message.editedAt !== null,
+		replyTo: replyTo
+			? {
+					id: replyTo.id,
+					senderName: replyTo.sender.name,
+					body: replyTo.body,
+					deleted: replyTo.deletedAt !== null,
+				}
+			: null,
+		reactions: message.deletedAt ? [] : [...reactions.values()],
 	};
 }

@@ -6,7 +6,7 @@ import {
 	getAccessToken,
 	getUserId,
 	handler,
-	requireManager,
+	requireCollectiveFineGiver,
 } from "../../../server/http";
 import { createPhotonFine } from "../../../server/photon";
 import { prisma } from "../../../server/prisma";
@@ -16,7 +16,7 @@ import { sendPush } from "../../../server/push";
 const SVARFRIST_PARAGRAPH = "1.01";
 
 /**
- * (Sub-/admin) Gi én bot til alle aktive medlemmer som ikke har svart på arrangementet. Kan bare
+ * (Sub-/admin eller botsjef) Gi én bot til alle aktive medlemmer som ikke har svart på arrangementet. Kan bare
  * gis én gang per arrangement. For lag fra tihlde.org gis bøtene der, under §1.01 hvis lovverket
  * har den, ellers uten paragraf.
  */
@@ -29,9 +29,9 @@ export const POST = handler<{ eventId: string }>(
 		});
 		if (!event) throw new HttpError(404, "Fant ikke arrangementet");
 		// Bøter gjelder hele gruppen, så fellesbot for et arrangement i en undergruppe havner i
-		// hovedgruppen, og krever sub-/admin der.
+		// hovedgruppen, og krever sub-/admin eller botsjef der.
 		const fineGroupId = event.group.parentId ?? event.groupId;
-		await requireManager(userId, fineGroupId);
+		await requireCollectiveFineGiver(userId, fineGroupId);
 
 		// Bare når man ikke lenger kan svare: etter fristen, eller etter start hvis det ikke er frist.
 		const closesAt = event.signupDeadline ?? event.startsAt;

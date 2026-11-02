@@ -45,6 +45,7 @@ import { z } from "zod";
 import { CheckboxField } from "@/components/checkbox-field";
 import { GroupAvatar } from "@/components/group-avatar";
 import { EmptyText, PageState } from "@/components/page-state";
+import { uploadFile } from "@/lib/upload";
 import { useTRPC } from "@/utils/trpc";
 
 export const Route = createFileRoute("/_auth/boter")({
@@ -293,11 +294,12 @@ function FineDialog({
 						},
 					];
 
-	// tihlde.org-bilder er private: hentes via serveren, som legger på innloggingen.
+	// tihlde.org-bilder er private: hentes via serveren, som legger på innloggingen. Sporty-bilder
+	// ligger hos oss (/api/uploads/…).
 	const imageSrc =
 		fine.source === "tihlde"
 			? `/api/fines/${encodeURIComponent(fine.id)}/image?groupId=${encodeURIComponent(fine.groupId)}`
-			: null;
+			: fine.imageUrl;
 
 	return (
 		<Dialog open onOpenChange={(next) => !next && onClose()}>
@@ -379,6 +381,8 @@ function GiveFineDialog({
 	const [search, setSearch] = useState("");
 	const [chosenCount, setCount] = useState<number | null>(null);
 	const [reason, setReason] = useState("");
+	const [image, setImage] = useState<File | null>(null);
+	const [uploading, setUploading] = useState(false);
 
 	const law = laws.data?.find((l) => l.id === lawId);
 	const count =
@@ -515,11 +519,40 @@ function GiveFineDialog({
 					/>
 				</div>
 
+				<div className="grid gap-2">
+					<Label htmlFor="fine-image">Bilde (valgfritt)</Label>
+					<Input
+						id="fine-image"
+						type="file"
+						accept="image/*"
+						onChange={(e) => setImage(e.target.files?.[0] ?? null)}
+					/>
+					{group.fines.source === "tihlde" && (
+						<p className="text-xs text-muted-foreground">
+							Bildet vises også på boten på tihlde.org.
+						</p>
+					)}
+				</div>
+
 				<DialogFooter>
 					<Button
-						disabled={!valid || give.isPending}
-						onClick={() =>
-							lawId &&
+						disabled={!valid || give.isPending || uploading}
+						onClick={async () => {
+							if (!lawId) return;
+							let imageUploadId: string | null = null;
+							if (image) {
+								setUploading(true);
+								try {
+									imageUploadId = (await uploadFile(image)).id;
+								} catch (error) {
+									toast.error(
+										`Kunne ikke laste opp bildet: ${(error as Error).message}`,
+									);
+									return;
+								} finally {
+									setUploading(false);
+								}
+							}
 							give.mutate({
 								requestId,
 								groupId: group.id,
@@ -527,8 +560,9 @@ function GiveFineDialog({
 								userIds: selected,
 								count,
 								reason: reason.trim(),
-							})
-						}
+								imageUploadId,
+							});
+						}}
 					>
 						Gi {formatFineCount(count)}
 						{selected.length > 1 ? ` til ${selected.length}` : ""}

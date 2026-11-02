@@ -1,41 +1,39 @@
 import { HttpError, getUserId, handler } from "../../server/http";
 import type { Place } from "../../types";
 
-// Søk etter steder i OpenStreetMap (Nominatim). Gratis og uten nøkkel, men med bruksregler:
-// maks ett kall i sekundet og en User-Agent som identifiserer appen. Appen venter derfor til
-// brukeren har sluttet å skrive. Bytt til en betalt geokoder om bruken blir stor.
-// https://operations.osmfoundation.org/policies/nominatim/
-const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
+// Søk etter steder i OpenStreetMap via Photon. Laget for søk mens man skriver: treffer på
+// starten av ord og tåler små skrivefeil, så «Tempe kunstgress» finner «Tempe kunstgressbane».
+// (Nominatim, som ble brukt før, krever hele ord.) Gratis og uten nøkkel, men den offentlige
+// serveren skal brukes med måte, så appen venter til brukeren har sluttet å skrive. Bytt til en
+// egen Photon-server eller en betalt geokoder om bruken blir stor.
+// https://photon.komoot.io
+const PHOTON_URL = "https://photon.komoot.io/api/";
 
-// Foretrekker treff rundt Trondheim, men utelukker ikke andre steder.
-const TRONDHEIM_VIEWBOX = "10.0,63.6,10.8,63.25";
+// Foretrekker treff rundt Trondheim, men utelukker ikke andre steder i Norge.
+const TRONDHEIM = { lat: "63.43", lon: "10.39" };
+// Omtrent Norge (vest, sør, øst, nord). Tar også med litt av nabolandene, de filtreres bort under.
+const NORWAY_BBOX = "4.0,57.9,31.5,71.3";
+const LIMIT = 8;
 
-interface NominatimResult {
-	name?: string;
-	display_name: string;
-	lat: string;
-	lon: string;
-	address?: {
-		road?: string;
-		pedestrian?: string;
-		house_number?: string;
+interface PhotonFeature {
+	geometry: { coordinates: [lon: number, lat: number] };
+	properties: {
+		name?: string;
+		street?: string;
+		housenumber?: string;
 		postcode?: string;
 		city?: string;
 		town?: string;
 		village?: string;
-		municipality?: string;
+		county?: string;
+		countrycode?: string;
 	};
 }
 
 /** «Skansegata 20, 7014 Trondheim». Det som mangler, utelates. */
-function formatAddress(address: NonNullable<NominatimResult["address"]>) {
-	const street = [address.road ?? address.pedestrian, address.house_number]
-		.filter(Boolean)
-		.join(" ");
-	const place = [
-		address.postcode,
-		address.city ?? address.town ?? address.village ?? address.municipality,
-	]
+function formatAddress(p: PhotonFeature["properties"]) {
+	const street = [p.street, p.housenumber].filter(Boolean).join(" ");
+	const place = [p.postcode, p.city ?? p.town ?? p.village ?? p.county]
 		.filter(Boolean)
 		.join(" ");
 	return { street, full: [street, place].filter(Boolean).join(", ") };
@@ -46,15 +44,13 @@ export const GET = handler(async (request): Promise<Place[]> => {
 	const q = new URL(request.url).searchParams.get("q")?.trim() ?? "";
 	if (q.length < 3) return [];
 
-	const url = new URL(NOMINATIM_URL);
+	const url = new URL(PHOTON_URL);
 	url.search = new URLSearchParams({
 		q,
-		format: "jsonv2",
-		limit: "8",
-		countrycodes: "no",
-		viewbox: TRONDHEIM_VIEWBOX,
-		addressdetails: "1",
-		"accept-language": "nb",
+		// Ber om flere enn vi viser, siden treff utenfor Norge fjernes.
+		limit: String(LIMIT * 2),
+		...TRONDHEIM,
+		bbox: NORWAY_BBOX,
 	}).toString();
 
 	const response = await fetch(url, {
@@ -62,16 +58,22 @@ export const GET = handler(async (request): Promise<Place[]> => {
 	});
 	if (!response.ok) throw new HttpError(502, "Stedssøket svarte ikke");
 
-	const results = (await response.json()) as NominatimResult[];
-	return results.map((r) => {
-		const { street, full } = formatAddress(r.address ?? {});
-		return {
-			id: null,
-			// Rene adresser har ikke navn: da er gateadressen navnet, ikke bare husnummeret.
-			name: r.name || street || r.display_name.split(", ")[0] || r.display_name,
-			address: full,
-			latitude: Number(r.lat),
-			longitude: Number(r.lon),
-		};
-	});
+	const { features } = (await response.json()) as {
+		features: PhotonFeature[];
+	};
+	return features
+		.filter((f) => f.properties.countrycode === "NO")
+		.slice(0, LIMIT)
+		.map(({ properties, geometry }) => {
+			const { street, full } = formatAddress(properties);
+			const [longitude, latitude] = geometry.coordinates;
+			return {
+				id: null,
+				// Rene adresser har ikke navn: da er gateadressen navnet.
+				name: properties.name || street || full || q,
+				address: full,
+				latitude,
+				longitude,
+			};
+		});
 });

@@ -160,7 +160,12 @@ async function syncRoster(accessToken: string, slug: string, groupId: string) {
 		.filter((m) => m.role === "leader")
 		.map((m) => userIdByPhotonId.get(m.userId)!);
 	await prisma.membership.updateMany({
-		where: { groupId, userId: { in: leaderIds }, role: { not: "admin" } },
+		// Index har allerede admin-tilgang, så de beholder rollen sin.
+		where: {
+			groupId,
+			userId: { in: leaderIds },
+			role: { notIn: ["admin", "index"] },
+		},
 		data: { role: "admin" },
 	});
 

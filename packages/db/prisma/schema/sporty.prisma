@@ -3,8 +3,19 @@
 
 enum Role {
   admin
+  /// Full admin-tilgang for Index (de som drifter Sporty). Vises ikke som eget merke.
+  index
   subadmin
+  /// Vanlig medlem som i tillegg kan gi fellesbot. Settes i hovedgruppen, der bøtene hører til.
+  botsjef
   member
+}
+
+/// Status på et medlems «Jeg har betalt». Sub/admin sjekker i Vipps og godkjenner eller avviser.
+enum PaymentStatus {
+  pending
+  approved
+  rejected
 }
 
 enum AttendanceStatus {
@@ -61,6 +72,7 @@ model Person {
 
   memberships          Membership[]
   attendances          Attendance[]
+  eventViews           EventView[]
   announcements        Announcement[]
   pollVotes            PollVote[]
   fines                Fine[]                @relation("FineReceiver")
@@ -75,9 +87,11 @@ model Person {
   notifications        Notification[]
   conversations        ConversationMember[]
   messages             Message[]
+  messageReactions     MessageReaction[]
   pushTokens           PushToken[]
   notificationSettings NotificationSettings?
   matchStats           MatchStat[]
+  offices              OfficeHolder[]
 }
 
 model Group {
@@ -120,6 +134,8 @@ model Group {
   places          Place[]
   positions       GroupPosition[]
   matchStatTypes  MatchStatType[]
+  offices         GroupOffice[]
+  officePeriods   OfficePeriod[]
 }
 
 model Membership {
@@ -183,6 +199,45 @@ model GroupPosition {
   @@index([groupId, sortOrder])
 }
 
+/// Et verv i laget, f.eks. Lagleder eller Botsjef. Admin i hovedgruppen lager listen på nettsiden,
+/// og den brukes i alle periodene i vervhistorikken. Appen viser vervene, men endrer dem ikke.
+model GroupOffice {
+  id      String         @id @default(cuid())
+  groupId String
+  name    String
+  group   Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  holders OfficeHolder[]
+
+  @@unique([groupId, name])
+}
+
+/// En periode i vervhistorikken, f.eks. «Sesongen 2026». Periodene kan overlappe.
+model OfficePeriod {
+  id       String         @id @default(cuid())
+  groupId  String
+  /// Valgfritt. Uten navn vises datoene.
+  name     String         @default("")
+  startsOn DateTime       @db.Date
+  endsOn   DateTime       @db.Date
+  group    Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  holders  OfficeHolder[]
+
+  @@index([groupId, startsOn])
+}
+
+/// Hvem som hadde et verv i en periode. Et verv kan ha flere personer, f.eks. to assistenttrenere.
+model OfficeHolder {
+  periodId String
+  officeId String
+  userId   String
+  period   OfficePeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  office   GroupOffice  @relation(fields: [officeId], references: [id], onDelete: Cascade)
+  user     Person       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([periodId, officeId, userId])
+  @@index([userId])
+}
+
 model Event {
   id               String    @id @default(cuid())
   groupId          String
@@ -212,14 +267,29 @@ model Event {
   theirScore       Int?
   /// Valgfri. Etter fristen kan man ikke lenger svare på arrangementet.
   signupDeadline   DateTime?
+  /// Valgfri. Når så mange har svart «kommer», kan ingen flere melde seg på.
+  maxAttendees     Int?
   /// Når fellesbot ble gitt for arrangementet. Den kan bare gis én gang.
   collectiveFineAt DateTime?
 
   attendances Attendance[]
   fines       Fine[]
   matchStats  MatchStat[]
+  views       EventView[]
 
   @@index([groupId, startsAt])
+}
+
+/// Når hver person sist åpnet arrangementet. Vises for sub-/admin under «Ikke svart», så de ser
+/// hvem som har sett innkallingen uten å svare.
+model EventView {
+  eventId String
+  userId  String
+  seenAt  DateTime
+  event   Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user    Person   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, userId])
 }
 
 /// Svar på et arrangement. Medlemmer uten rad her har ikke svart.
@@ -227,6 +297,8 @@ model Attendance {
   eventId   String
   userId    String
   status    AttendanceStatus
+  /// Hvorfor man ikke kommer. Påkrevd ved «kommer ikke», tom ved «kommer».
+  reason    String           @default("")
   updatedAt DateTime         @updatedAt
   event     Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
   user      Person           @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -386,13 +458,15 @@ model PaymentRequest {
   confirmations PaymentConfirmation[]
 }
 
-/// Medlemmet har selv markert at det har betalt.
+/// Medlemmet har selv markert at det har betalt. Teller først som betalt når sub/admin har godkjent.
 model PaymentConfirmation {
-  paymentId String
-  userId    String
-  createdAt DateTime       @default(now())
-  payment   PaymentRequest @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  user      Person         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paymentId  String
+  userId     String
+  status     PaymentStatus  @default(pending)
+  createdAt  DateTime       @default(now())
+  reviewedAt DateTime?
+  payment    PaymentRequest @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  user       Person         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([paymentId, userId])
 }
@@ -465,15 +539,37 @@ model ConversationMember {
 }
 
 model Message {
-  id             String       @id @default(cuid())
+  id             String            @id @default(cuid())
   conversationId String
   senderId       String
+  /// Tom når meldingen er slettet.
   body           String
-  sentAt         DateTime     @default(now())
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender         Person       @relation(fields: [senderId], references: [id])
+  sentAt         DateTime          @default(now())
+  /// Meldingen dette er et svar på.
+  replyToId      String?
+  /// Slettede meldinger blir liggende som «Meldingen ble slettet», så svar på dem gir mening.
+  deletedAt      DateTime?
+  /// Sist teksten ble redigert. Null hvis den aldri er endret.
+  editedAt       DateTime?
+  conversation   Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         Person            @relation(fields: [senderId], references: [id])
+  replyTo        Message?          @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies        Message[]         @relation("MessageReplies")
+  reactions      MessageReaction[]
 
   @@index([conversationId, sentAt])
+}
+
+/// En emoji-reaksjon på en melding. Samme person kan reagere med flere ulike emojier.
+model MessageReaction {
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      Person   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, userId, emoji])
 }
 
 /// Expo push-token for en enhet. Én enhet hører til én bruker om gangen (siste som logget inn).

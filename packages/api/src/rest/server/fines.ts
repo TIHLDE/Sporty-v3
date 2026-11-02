@@ -3,7 +3,7 @@
 
 import type * as Dto from "../types";
 import { toUser } from "./dto";
-import { HttpError, getRole, isManager } from "./http";
+import { HttpError, getRole, isFineManager, isManager } from "./http";
 import {
 	type PhotonFine,
 	type PhotonLaw,
@@ -42,6 +42,8 @@ export async function getFinesInfo(
 			activated: true,
 			canGive: isManager(role),
 			canSettle: false,
+			// Snitches er massebot: botsjef får lov, ellers bare sub-/admin.
+			canSnitch: isFineManager(role),
 		};
 	}
 	const user = await prisma.person.findUnique({
@@ -58,7 +60,9 @@ export async function getFinesInfo(
 		canSettle:
 			activated &&
 			(role === "admin" ||
+				role === "botsjef" ||
 				(user?.photonId != null && user.photonId === group.photonFinesAdminId)),
+		canSnitch: activated && isFineManager(role),
 	};
 }
 
