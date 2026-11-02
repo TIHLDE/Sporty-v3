@@ -285,14 +285,18 @@ function GroupEvents({ group }: { group: GroupDetails }) {
 		isPending: results.some((r) => r.isPending),
 		isError: Boolean(failed),
 		error: failed?.error ?? null,
+		// Hovedgruppens liste har allerede med undergruppene du er med i, så de samme arrangementene
+		// kommer to ganger. Én per id (undergruppe-spørringene trengs for dem du ikke er med i).
 		data: results.every((r) => r.data)
-			? results
-					.flatMap((r) => r.data ?? [])
-					.sort((a, b) =>
-						when === "upcoming"
-							? a.start.localeCompare(b.start)
-							: b.start.localeCompare(a.start),
-					)
+			? [
+					...new Map(
+						results.flatMap((r) => r.data ?? []).map((e) => [e.id, e]),
+					).values(),
+				].sort((a, b) =>
+					when === "upcoming"
+						? a.start.localeCompare(b.start)
+						: b.start.localeCompare(a.start),
+				)
 			: undefined,
 	};
 
