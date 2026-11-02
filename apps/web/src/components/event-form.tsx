@@ -66,6 +66,9 @@ export function EventForm({
 	const [end, setEnd] = useState(
 		editing?.end ? toLocalInput(new Date(editing.end)) : "",
 	);
+	const [meetup, setMeetup] = useState(
+		editing?.meetupAt ? toLocalInput(new Date(editing.meetupAt)) : "",
+	);
 	const [deadline, setDeadline] = useState(
 		editing?.signupDeadline
 			? toLocalInput(new Date(editing.signupDeadline))
@@ -84,6 +87,10 @@ export function EventForm({
 
 	const endError =
 		end && start && end <= start ? "Sluttid må være etter starttid" : null;
+	const meetupError =
+		meetup && start && meetup >= start
+			? "Oppmøtetiden må være før starttiden"
+			: null;
 	const deadlineError =
 		deadline && start && deadline > start
 			? "Fristen må være før arrangementet starter"
@@ -102,11 +109,15 @@ export function EventForm({
 		!maxAttendeesError,
 	);
 
-	/** Flytt sluttiden med, så varigheten beholdes. */
+	/** Flytt sluttiden og oppmøtetiden med, så varighet og oppmøte-margin beholdes. */
 	const changeStart = (value: string) => {
 		if (end && start && value) {
 			const duration = new Date(end).getTime() - new Date(start).getTime();
 			setEnd(toLocalInput(new Date(new Date(value).getTime() + duration)));
+		}
+		if (meetup && start && value) {
+			const offset = new Date(meetup).getTime() - new Date(start).getTime();
+			setMeetup(toLocalInput(new Date(new Date(value).getTime() + offset)));
 		}
 		setStart(value);
 	};
@@ -119,6 +130,7 @@ export function EventForm({
 			opponent: type === "kamp" && opponent.trim() ? opponent.trim() : null,
 			start: toIso(start),
 			end: end ? toIso(end) : null,
+			meetupAt: meetup ? toIso(meetup) : null,
 			signupDeadline: deadline ? toIso(deadline) : null,
 			maxAttendees: limitAttendees ? Number(maxAttendees) : null,
 			location: {
@@ -208,6 +220,27 @@ export function EventForm({
 					value={end}
 					min={start}
 					onChange={(e) => setEnd(e.target.value)}
+				/>
+			</OptionalField>
+
+			<OptionalField
+				label="Oppmøtetid"
+				enabled={Boolean(meetup)}
+				onToggle={(on) =>
+					setMeetup(
+						on && start
+							? toLocalInput(new Date(new Date(start).getTime() - 30 * 60 * 1000))
+							: "",
+					)
+				}
+				error={meetupError}
+			>
+				<Input
+					aria-label="Velg oppmøtetid"
+					type="datetime-local"
+					value={meetup}
+					max={start}
+					onChange={(e) => setMeetup(e.target.value)}
 				/>
 			</OptionalField>
 

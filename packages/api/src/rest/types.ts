@@ -174,6 +174,8 @@ export interface Event {
 	location: Location;
 	start: string;
 	end: string | null;
+	/** Når folk møtes, f.eks. 30 min før start. Null = ingen oppmøtetid. */
+	meetupAt: string | null;
 	/** Etter fristen kan man ikke lenger svare. */
 	signupDeadline: string | null;
 	/** Maks antall som kan svare «kommer». Null betyr ingen grense. */
@@ -473,6 +475,8 @@ export interface CreateEventInput {
 	opponent: string | null;
 	start: string;
 	end: string | null;
+	/** Når folk møtes, f.eks. 30 min før start. Null = ingen oppmøtetid. */
+	meetupAt: string | null;
 	location: Location;
 	description: string;
 	signupDeadline: string | null;

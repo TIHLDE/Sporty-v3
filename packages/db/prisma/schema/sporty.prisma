@@ -257,6 +257,9 @@ model Event {
   latitude         Float
   longitude        Float
   startsAt         DateTime
+  /// Valgfri. Når folk møtes, f.eks. 30 min før start (samling før kamp). Uten denne møtes folk
+  /// ved starttiden.
+  meetupAt         DateTime?
   /// Valgfri. Uten sluttid regnes arrangementet som ferdig når det starter.
   endsAt           DateTime?
   /// Resultat for kamper: egne mål og motstanderens mål. Registreres av sub-/admin.

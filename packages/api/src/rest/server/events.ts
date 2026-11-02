@@ -39,9 +39,13 @@ export function parseEventInput(input: CreateEventInput) {
 	const startsAt = parseDate(input.start, "starttid");
 	if (!startsAt) throw new HttpError(400, "Velg starttid");
 	const endsAt = parseDate(input.end, "sluttid");
+	// Eldre versjoner av appen sender ikke oppmøtetid.
+	const meetupAt = parseDate(input.meetupAt, "oppmøtetid");
 	const signupDeadline = parseDate(input.signupDeadline, "påmeldingsfrist");
 	if (endsAt && endsAt <= startsAt)
 		throw new HttpError(400, "Sluttid må være etter starttid");
+	if (meetupAt && meetupAt >= startsAt)
+		throw new HttpError(400, "Oppmøtetiden må være før starttiden");
 	if (signupDeadline && signupDeadline > startsAt) {
 		throw new HttpError(
 			400,
@@ -74,6 +78,7 @@ export function parseEventInput(input: CreateEventInput) {
 		latitude: location.latitude,
 		longitude: location.longitude,
 		startsAt,
+		meetupAt,
 		endsAt,
 		signupDeadline,
 		maxAttendees,
