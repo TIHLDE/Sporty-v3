@@ -101,6 +101,11 @@ function EventView({ event }: { event: Event }) {
 						<ClockIcon className="size-4" />
 						{formatEventRange(event.start, event.end)}
 					</p>
+					{event.meetupAt && (
+						<p className="text-sm text-muted-foreground">
+							Oppmøte {formatEventRange(event.meetupAt, null)}
+						</p>
+					)}
 					<a
 						href={mapUrl}
 						target="_blank"
