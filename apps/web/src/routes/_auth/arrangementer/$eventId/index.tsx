@@ -35,11 +35,11 @@ import {
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { AnswerButtons } from "@/components/answer-buttons";
 import {
 	CollectiveFineButton,
 	canGiveCollectiveFine,
 } from "@/components/collective-fine-button";
-import { AnswerButtons } from "@/components/event-card";
 import { Markdown } from "@/components/markdown";
 import { PageState } from "@/components/page-state";
 import {

@@ -24,7 +24,7 @@ function NotificationsComponent() {
 	);
 
 	return (
-		<div className="grid w-4xl grid-cols-1 gap-6">
+		<div className="grid w-full max-w-4xl min-w-0 grid-cols-1 gap-6">
 			<div className="flex items-center justify-between gap-4">
 				<h1 className="text-2xl font-semibold">Varsler</h1>
 				{hasUnread && (

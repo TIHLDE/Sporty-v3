@@ -233,12 +233,37 @@ const placesRouter = router({
 const finesRouter = router({
 	/** Én side med bøter. `cursor` er sidenummeret (0 = nyeste), så useInfiniteQuery kan bruke den. */
 	page: protectedProcedure
-		.input(z.object({ groupId: id, cursor: z.number().int().min(0).nullish() }))
+		.input(
+			z.object({
+				groupId: id,
+				cursor: z.number().int().min(0).nullish(),
+				status: z.enum(["pending", "approved", "paid", "rejected"]).optional(),
+				userId: id.optional(),
+				from: z.iso.datetime().optional(),
+				to: z.iso.datetime().optional(),
+			}),
+		)
 		.query(({ ctx, input }) =>
 			restCall<Dto.FinesPage>(
 				ctx,
 				"GET",
-				`/groups/${enc(input.groupId)}/fines${query({ page: input.cursor ?? 0 })}`,
+				`/groups/${enc(input.groupId)}/fines${query({ page: input.cursor ?? 0, status: input.status, userId: input.userId, from: input.from, to: input.to })}`,
+			),
+		),
+	/** Bøtene i gruppen summert per medlem (fanen «Per medlem» på Bøter). */
+	members: protectedProcedure
+		.input(
+			z.object({
+				groupId: id,
+				from: z.iso.datetime().optional(),
+				to: z.iso.datetime().optional(),
+			}),
+		)
+		.query(({ ctx, input }) =>
+			restCall<Dto.MemberFines[]>(
+				ctx,
+				"GET",
+				`/groups/${enc(input.groupId)}/fine-members${query({ from: input.from, to: input.to })}`,
 			),
 		),
 	get: protectedProcedure

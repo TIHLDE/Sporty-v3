@@ -320,6 +320,27 @@ export interface FinesPage {
 	nextPage: number | null;
 	/** Ubetalte bøter (venter + godkjent) i hele gruppen, eller mine i Sporty-grupper for medlemmer. */
 	unpaidCount: number;
+	/**
+	 * Antall bøter per status og antall medlemmer (til «per medlem»). Avviste er ikke med. I
+	 * Sporty-grupper finnes ikke godkjenning, så `notApproved` er alltid 0 der.
+	 */
+	statistics?: FineStatistics;
+}
+
+export interface FineStatistics {
+	notApproved: number;
+	approvedNotPaid: number;
+	paid: number;
+	members: number;
+}
+
+/** Bøtene til ett medlem, summert per status. */
+export interface MemberFines {
+	user: User;
+	notApproved: number;
+	approvedNotPaid: number;
+	paid: number;
+	rejected: number;
 }
 
 /**

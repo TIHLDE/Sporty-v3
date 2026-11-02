@@ -1,6 +1,8 @@
 "use client";
 
-import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
+// Animate UI sin utgave av Base UI-fanene: markeringen glir mellom fanene, og innholdet
+// animeres ved bytte. Samme API som @base-ui/react/tabs.
+import { Tabs as TabsPrimitive } from "@animate-ui/react/primitives/base-ui/tabs";
 import { cn } from "@sporty/ui/lib/utils";
 import { cva, type VariantProps } from "class-variance-authority";
 

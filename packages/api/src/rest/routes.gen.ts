@@ -30,6 +30,7 @@ import * as r13 from "./routes/groups/[groupId]/events";
 import * as r3 from "./routes/groups/[groupId]/export/attendance";
 import * as r4 from "./routes/groups/[groupId]/export/results";
 import * as r14 from "./routes/groups/[groupId]/files";
+import * as rFineMembers from "./routes/groups/[groupId]/fine-members";
 import * as r15 from "./routes/groups/[groupId]/fines";
 import * as r37 from "./routes/groups/[groupId]/index";
 import * as r16 from "./routes/groups/[groupId]/laws";
@@ -120,6 +121,7 @@ export const routes = [
 	{ pattern: "/groups/:groupId/events", module: r13 },
 	{ pattern: "/groups/:groupId/files", module: r14 },
 	{ pattern: "/groups/:groupId/fines", module: r15 },
+	{ pattern: "/groups/:groupId/fine-members", module: rFineMembers },
 	{ pattern: "/groups/:groupId/laws", module: r16 },
 	{ pattern: "/groups/:groupId/members", module: r17 },
 	{ pattern: "/groups/:groupId/payments", module: r18 },

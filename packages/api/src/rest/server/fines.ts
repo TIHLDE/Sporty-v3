@@ -7,6 +7,7 @@ import { HttpError, getRole, isFineManager, isManager } from "./http";
 import {
 	type PhotonFine,
 	type PhotonLaw,
+	listAllPhotonFines,
 	listPhotonLaws,
 	photonFineImageUrl,
 } from "./photon";
@@ -198,4 +199,57 @@ export async function inactiveNames(userIds: string[], groupIds: string[]) {
 		select: { userId: true, user: { select: { name: true } } },
 	});
 	return [...new Map(inactive.map((m) => [m.userId, m.user.name])).values()];
+}
+
+/**
+ * Alle bøtene i et lag fra tihlde.org, nyeste først. tihlde.org kan bare bla side for side uten
+ * filter, så statusfilteret og «Per medlem» bruker denne (hentes én gang i minuttet, se
+ * listAllPhotonFines).
+ */
+export async function getAllPhotonFines(
+	accessToken: string,
+	group: { id: string; photonSlug: string },
+) {
+	return toFinesFromPhoton(
+		await listAllPhotonFines(accessToken, group.photonSlug),
+		group,
+	);
+}
+
+/** Tidsrom fra `?from=` og `?to=` (ISO-tidspunkter fra appen, inkludert). Ugyldige ignoreres. */
+export interface FineDateRange {
+	from?: Date;
+	to?: Date;
+}
+
+export function fineDateRange(params: URLSearchParams): FineDateRange {
+	const parse = (value: string | null) => {
+		if (!value) return undefined;
+		const date = new Date(value);
+		return Number.isNaN(date.getTime()) ? undefined : date;
+	};
+	return { from: parse(params.get("from")), to: parse(params.get("to")) };
+}
+
+export const hasDateRange = (range: FineDateRange) =>
+	Boolean(range.from || range.to);
+
+/** Om boten ble gitt innenfor tidsrommet. */
+export function inDateRange(createdAt: string, range: FineDateRange) {
+	const time = new Date(createdAt).getTime();
+	return (
+		(!range.from || time >= range.from.getTime()) &&
+		(!range.to || time <= range.to.getTime())
+	);
+}
+
+/** Antall bøter per status, f.eks. innenfor et tidsrom. Avviste er ikke med, som på tihlde.org. */
+export function countByStatus(fines: Dto.Fine[]) {
+	const counts = { notApproved: 0, approvedNotPaid: 0, paid: 0 };
+	for (const fine of fines) {
+		if (fine.status === "pending") counts.notApproved += fine.count;
+		else if (fine.status === "approved") counts.approvedNotPaid += fine.count;
+		else if (fine.status === "paid") counts.paid += fine.count;
+	}
+	return counts;
 }

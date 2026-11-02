@@ -28,6 +28,29 @@ Kopier denne blokken til toppen av listen under, og ta bare med kategoriene som 
 
 ---
 
+## 2026-11-02
+
+### ✨ Feature
+
+- **Nytt design på nettsiden**: Public Sans, rolige lyse flater og en mørk «tavle» for arrangementer, med ravgult bare for det som krever handling (f.eks. «Ikke svart»). Lys og mørk modus.
+  - **Meny**: sidemeny på store skjermer (kan felles sammen til ikoner med Cmd/Ctrl+B) med glidende markering, «Grupper» som undermeny, «Dine lag» med undergruppene du er med i, og brukermeny nederst. På mobil en flytende fanemeny nederst som krymper når du ruller.
+  - **Hjem**: neste arrangement som billett med nedtelling og svarknapper, dine ubetalte bøter, og kommende arrangementer på tavla.
+  - **Arrangementspanel**: klikk på et arrangement i tavla for tid, sted, oppmøte, påmeldingsfrist, svar og hvem som kommer (trekkspill med navn og begrunnelser). Sub-/admin får «Rediger arrangementet» og «Gi fellesbot».
+  - **Logg inn**: SPORTY på flipbrikker (React Bits «Split Flap Text», står stille med «Reduser bevegelse»).
+  - **Grupper** som lette kort med rolle og undergrupper, og **gruppesiden** med forsidebilde, handlinger og tavla under Arrangementer.
+  - **Bøter**: hver bot som trekkspill (antall, navn, paragraf; åpnet: status, dato, bilde, begrunnelse og godkjenning), tall per status med snitt per medlem, fanen «Per medlem» (også som trekkspill med medlemmets bøter), og filter på status og periode (fra/til, med snarveier som «Denne måneden» og «Dette semesteret»).
+  - **Statistikk**: animerte faner, tall som teller opp og stolper som vokser fram.
+  - **Animasjoner** fra Animate UI (sidemeny, fanemeny, faner, nedtrekksmenyer, trekkspill) og myke overganger mellom sider (View Transitions). Alt respekterer «Reduser bevegelse».
+- **API for bøter**: `GET /groups/:groupId/fines` tar `?status=`, `?userId=`, `?from=` og `?to=`, og returnerer `statistics` (antall per status og medlemmer). Ny `GET /groups/:groupId/fine-members` med bøter summert per medlem. For lag fra tihlde.org hentes hele listen (opptil 5000) og gjenbrukes i ett minutt, og tømmes når en bot gis eller endres
+
+### 🐛 Fix
+
+- Bøter, Varsler og Meldinger rullet sideveis på smale skjermer, og lange begrunnelser på bøter skjøv antall og status ut av raden
+
+### 🗑️ Fjernet
+
+- Det gamle arrangementskortet og bøte-dialogen (erstattet av tavla, arrangementspanelet og trekkspillene)
+
 ## 2026-10-14
 
 ### ✨ Feature

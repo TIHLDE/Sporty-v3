@@ -1,10 +1,16 @@
-import { formatRelative } from "@sporty/api/rest/lib/dates";
+import { Accordion } from "@animate-ui/react/primitives/base-ui/accordion";
 import {
 	FINE_STATUS_LABEL,
 	formatFineCount,
 	formatLaw,
 } from "@sporty/api/rest/lib/fines";
-import type { Fine, FineStatus, GroupDetails } from "@sporty/api/rest/types";
+import type {
+	Fine,
+	FineStatistics,
+	FineStatus,
+	GroupDetails,
+	MemberFines,
+} from "@sporty/api/rest/types";
 import { Badge } from "@sporty/ui/components/badge";
 import { Button } from "@sporty/ui/components/button";
 import {
@@ -24,7 +30,14 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@sporty/ui/components/select";
+import {
+	Tabs,
+	TabsContent,
+	TabsList,
+	TabsTrigger,
+} from "@sporty/ui/components/tabs";
 import { Textarea } from "@sporty/ui/components/textarea";
+import { cn } from "@sporty/ui/lib/utils";
 import {
 	useInfiniteQuery,
 	useMutation,
@@ -33,10 +46,11 @@ import {
 } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
+	ChevronDownIcon,
 	CircleDollarSignIcon,
-	ImageIcon,
 	MinusIcon,
 	PlusIcon,
+	XIcon,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -45,6 +59,7 @@ import { z } from "zod";
 import { CheckboxField } from "@/components/checkbox-field";
 import { GroupAvatar } from "@/components/group-avatar";
 import { EmptyText, PageState } from "@/components/page-state";
+import { UserAvatar } from "@/components/user-avatar";
 import { uploadFile } from "@/lib/upload";
 import { useTRPC } from "@/utils/trpc";
 
@@ -72,7 +87,7 @@ function FinesComponent() {
 					return <EmptyText>Du er ikke med i noen grupper.</EmptyText>;
 				const selected = list.find((g) => g.id === gruppe) ?? list[0]!;
 				return (
-					<div className="grid min-w-4xl grid-cols-1 items-center justify-center gap-6">
+					<div className="grid w-full max-w-4xl min-w-0 grid-cols-1 gap-6">
 						<div className="flex flex-wrap items-center justify-between gap-4">
 							<h1 className="text-2xl font-semibold">Bøter</h1>
 							<Select
@@ -81,7 +96,7 @@ function FinesComponent() {
 									value && navigate({ search: { gruppe: value } })
 								}
 							>
-								<SelectTrigger className="w-64">
+								<SelectTrigger className="w-full sm:w-64">
 									<SelectValue>
 										<GroupAvatar group={selected} size={20} />
 										{selected.name}
@@ -118,10 +133,19 @@ function FinesList({ group }: { group: GroupDetails }) {
 	const { source, activated, canGive, canSettle } = group.fines;
 	const fromTihlde = source === "tihlde";
 	const [giving, setGiving] = useState(false);
-	const [open, setOpen] = useState<Fine | null>(null);
+	const [view, setView] = useState<"alle" | "medlemmer">("alle");
+	const [status, setStatus] = useState<FineStatus | "alle">("alle");
+	const [fromDate, setFromDate] = useState("");
+	const [toDate, setToDate] = useState("");
+	const range = dateRange(fromDate, toDate);
+	const statusOptions = fromTihlde ? TIHLDE_STATUSES : SPORTY_STATUSES;
 	const fines = useInfiniteQuery(
 		trpc.fines.page.infiniteQueryOptions(
-			{ groupId: group.id },
+			{
+				groupId: group.id,
+				status: status === "alle" ? undefined : status,
+				...range,
+			},
 			{ getNextPageParam: (last) => last.nextPage, enabled: activated },
 		),
 	);
@@ -133,75 +157,552 @@ function FinesList({ group }: { group: GroupDetails }) {
 	}
 
 	const all = fines.data?.pages.flatMap((page) => page.fines) ?? [];
-	const unpaid = fines.data?.pages[0]?.unpaidCount ?? 0;
+	const statistics = fines.data?.pages[0]?.statistics;
+	const ownOnly = !fromTihlde && !group.canManage;
 
 	return (
-		<div className="grid gap-4">
-			<div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border p-4">
-				<div>
-					<p className="text-sm text-muted-foreground">
-						{fromTihlde
-							? "Ubetalt i laget"
-							: group.canManage
-								? "Ubetalt i gruppen"
-								: "Dine ubetalte bøter"}
-					</p>
-					<p className="text-2xl font-semibold">{formatFineCount(unpaid)}</p>
-				</div>
-				{canGive && (
-					<Button onClick={() => setGiving(true)}>
-						<CircleDollarSignIcon />
-						Gi bot
-					</Button>
-				)}
-			</div>
+		<div className="grid gap-5">
+			{canGive && (
+				<Button
+					size="lg"
+					className="w-full sm:w-fit sm:justify-self-end"
+					onClick={() => setGiving(true)}
+				>
+					<CircleDollarSignIcon />
+					Gi bot
+				</Button>
+			)}
+			{statistics && (
+				<FineStatisticsCards
+					statistics={statistics}
+					withApproval={fromTihlde}
+					ownOnly={ownOnly}
+				/>
+			)}
 			{fromTihlde && (
 				<p className="text-sm text-muted-foreground">
 					Bøtene hentes fra tihlde.org. Nye bøter venter på godkjenning fra
 					botsjefen
 					{canSettle
-						? ". Trykk på en bot for å godkjenne, markere som betalt eller avvise."
+						? ". Åpne en bot for å godkjenne, markere som betalt eller avvise."
 						: "."}
 				</p>
 			)}
 
+			<Tabs
+				value={view}
+				onValueChange={(value) => setView(value as typeof view)}
+				className="gap-4"
+			>
+				<div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+					<TabsList className="w-full sm:w-fit">
+						<TabsTrigger value="alle" className="flex-1 px-3">
+							Alle bøter
+						</TabsTrigger>
+						<TabsTrigger value="medlemmer" className="flex-1 px-3">
+							Per medlem
+						</TabsTrigger>
+					</TabsList>
+				</div>
+				<div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end">
+					<Select
+						value={status}
+						onValueChange={(value) =>
+							value && setStatus(value as typeof status)
+						}
+					>
+						<SelectTrigger
+							aria-label="Vis bøter med status"
+							className="col-span-2 w-full sm:w-56"
+						>
+							<SelectValue>
+								{(value: string) =>
+									statusOptions.find((o) => o.value === value)?.label
+								}
+							</SelectValue>
+						</SelectTrigger>
+						<SelectContent>
+							{statusOptions.map((option) => (
+								<SelectItem key={option.value} value={option.value}>
+									{option.label}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+					<Select
+						value={periodOf(fromDate, toDate)}
+						onValueChange={(value) => {
+							const period = PERIODS.find((p) => p.value === value);
+							if (!period) return;
+							const [from, to] = period.range(new Date());
+							setFromDate(from);
+							setToDate(to);
+						}}
+					>
+						<SelectTrigger
+							aria-label="Periode"
+							className="col-span-2 w-full sm:w-48"
+						>
+							<SelectValue>
+								{(value: string) =>
+									value === "egendefinert"
+										? "Egendefinert"
+										: PERIODS.find((p) => p.value === value)?.label
+								}
+							</SelectValue>
+						</SelectTrigger>
+						<SelectContent>
+							{PERIODS.map((period) => (
+								<SelectItem key={period.value} value={period.value}>
+									{period.label}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+					<DateField
+						label="Fra"
+						value={fromDate}
+						max={toDate || undefined}
+						onChange={setFromDate}
+					/>
+					<DateField
+						label="Til"
+						value={toDate}
+						min={fromDate || undefined}
+						onChange={setToDate}
+					/>
+					{(fromDate || toDate || status !== "alle") && (
+						<Button
+							variant="ghost"
+							className="col-span-2 sm:col-span-1"
+							onClick={() => {
+								setStatus("alle");
+								setFromDate("");
+								setToDate("");
+							}}
+						>
+							<XIcon />
+							Nullstill
+						</Button>
+					)}
+				</div>
+
+				<TabsContent value="alle" className="grid gap-4">
+					<PageState query={{ ...fines, data: fines.data ? all : undefined }}>
+						{(list) =>
+							list.length === 0 ? (
+								<EmptyText>Ingen bøter 🎉</EmptyText>
+							) : (
+								<Accordion.Root
+									multiple
+									className="overflow-hidden rounded-2xl border bg-card"
+								>
+									{list.map((fine) => (
+										<FineItem
+											key={fine.id}
+											fine={fine}
+											canSettle={canSettle && fine.source === "tihlde"}
+										/>
+									))}
+								</Accordion.Root>
+							)
+						}
+					</PageState>
+					{fines.hasNextPage && (
+						<Button
+							variant="outline"
+							disabled={fines.isFetchingNextPage}
+							onClick={() => fines.fetchNextPage()}
+						>
+							{fines.isFetchingNextPage ? "Laster…" : "Last inn flere"}
+						</Button>
+					)}
+				</TabsContent>
+
+				<TabsContent value="medlemmer">
+					<FinesPerMember
+						groupId={group.id}
+						withApproval={fromTihlde}
+						status={status}
+						range={range}
+						canSettle={canSettle}
+					/>
+				</TabsContent>
+			</Tabs>
+
+			{giving && (
+				<GiveFineDialog group={group} onClose={() => setGiving(false)} />
+			)}
+		</div>
+	);
+}
+
+/** Valgene i statusfilteret. Sporty-grupper har ikke godkjenning, så der er det bare betalt/ikke. */
+const TIHLDE_STATUSES: { value: FineStatus | "alle"; label: string }[] = [
+	{ value: "alle", label: "Alle bøter" },
+	{ value: "pending", label: "Ikke godkjent" },
+	{ value: "approved", label: "Godkjent, ikke betalt" },
+	{ value: "paid", label: "Betalt" },
+	{ value: "rejected", label: "Avvist" },
+];
+const SPORTY_STATUSES: { value: FineStatus | "alle"; label: string }[] = [
+	{ value: "alle", label: "Alle bøter" },
+	{ value: "approved", label: "Ikke betalt" },
+	{ value: "paid", label: "Betalt" },
+];
+
+type DateRange = { from?: string; to?: string };
+
+/** YYYY-MM-DD i lokal tid, som i datofeltene. */
+const isoDay = (date: Date) =>
+	`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+const day = (year: number, month: number, date: number) =>
+	isoDay(new Date(year, month, date));
+
+/**
+ * Snarveier for «Fra» og «Til», regnet fra i dag. Semesteret er vår (januar–juli) eller høst
+ * (august–desember).
+ */
+const PERIODS: {
+	value: string;
+	label: string;
+	range: (today: Date) => [string, string];
+}[] = [
+	{ value: "alle", label: "Hele perioden", range: () => ["", ""] },
+	{
+		value: "7-dager",
+		label: "Siste 7 dager",
+		range: (t) => [
+			day(t.getFullYear(), t.getMonth(), t.getDate() - 6),
+			isoDay(t),
+		],
+	},
+	{
+		value: "denne-maaneden",
+		label: "Denne måneden",
+		range: (t) => [
+			day(t.getFullYear(), t.getMonth(), 1),
+			day(t.getFullYear(), t.getMonth() + 1, 0),
+		],
+	},
+	{
+		value: "forrige-maaned",
+		label: "Forrige måned",
+		range: (t) => [
+			day(t.getFullYear(), t.getMonth() - 1, 1),
+			day(t.getFullYear(), t.getMonth(), 0),
+		],
+	},
+	{
+		value: "semester",
+		label: "Dette semesteret",
+		range: (t) =>
+			t.getMonth() >= 7
+				? [day(t.getFullYear(), 7, 1), day(t.getFullYear(), 11, 31)]
+				: [day(t.getFullYear(), 0, 1), day(t.getFullYear(), 6, 31)],
+	},
+	{
+		value: "i-aar",
+		label: "I år",
+		range: (t) => [day(t.getFullYear(), 0, 1), day(t.getFullYear(), 11, 31)],
+	},
+];
+
+/** Hvilken snarvei datoene tilsvarer, eller «egendefinert» når de er valgt for hånd. */
+function periodOf(fromDate: string, toDate: string) {
+	const today = new Date();
+	return (
+		PERIODS.find((period) => {
+			const [from, to] = period.range(today);
+			return from === fromDate && to === toDate;
+		})?.value ?? "egendefinert"
+	);
+}
+
+/** «Fra» og «Til» (YYYY-MM-DD) som tidspunkter i norsk tid: starten og slutten av dagene. */
+function dateRange(fromDate: string, toDate: string): DateRange {
+	return {
+		...(fromDate
+			? { from: new Date(`${fromDate}T00:00:00`).toISOString() }
+			: {}),
+		...(toDate ? { to: new Date(`${toDate}T23:59:59.999`).toISOString() } : {}),
+	};
+}
+
+function DateField({
+	label,
+	value,
+	min,
+	max,
+	onChange,
+}: {
+	label: string;
+	value: string;
+	min?: string;
+	max?: string;
+	onChange: (value: string) => void;
+}) {
+	return (
+		<label className="grid gap-1 text-xs font-medium text-muted-foreground sm:w-40">
+			{label}
+			<Input
+				type="date"
+				value={value}
+				min={min}
+				max={max}
+				onChange={(e) => onChange(e.target.value)}
+				className="h-9 text-foreground"
+			/>
+		</label>
+	);
+}
+
+const statusLabel = (status: FineStatus, withApproval: boolean) =>
+	(withApproval ? TIHLDE_STATUSES : SPORTY_STATUSES).find(
+		(o) => o.value === status,
+	)?.label ?? "";
+
+const perMember = new Intl.NumberFormat("nb-NO", {
+	minimumFractionDigits: 1,
+	maximumFractionDigits: 1,
+});
+
+/**
+ * Bøtene i laget per status, og snittet per medlem. Uten godkjenning (Sporty-grupper) er det
+ * bare «Ikke betalt» og «Betalt».
+ */
+function FineStatisticsCards({
+	statistics,
+	withApproval,
+	ownOnly,
+}: {
+	statistics: FineStatistics;
+	withApproval: boolean;
+	ownOnly: boolean;
+}) {
+	const cards = [
+		...(withApproval
+			? [{ label: "Ikke godkjent", value: statistics.notApproved }]
+			: []),
+		{
+			label: withApproval ? "Godkjent, ikke betalt" : "Ikke betalt",
+			value: statistics.approvedNotPaid,
+		},
+		{ label: "Betalt", value: statistics.paid },
+	];
+	return (
+		// Side om side også på mobil, så kortene ikke fyller hele skjermen i høyden.
+		<div
+			className={cn(
+				"grid gap-2 sm:gap-3",
+				withApproval ? "grid-cols-3" : "grid-cols-2",
+			)}
+		>
+			{cards.map((card) => (
+				<div
+					key={card.label}
+					className="flex min-w-0 flex-col rounded-2xl border bg-card p-3 sm:p-5"
+				>
+					<p className="text-xs leading-tight text-muted-foreground sm:text-sm">
+						{ownOnly ? `Dine bøter: ${card.label.toLowerCase()}` : card.label}
+					</p>
+					<p className="mt-auto pt-1 text-2xl font-bold tracking-tight tabular-nums sm:text-3xl">
+						{card.value}
+					</p>
+					{!ownOnly && statistics.members > 0 && (
+						<p className="text-xs text-muted-foreground sm:text-sm">
+							{perMember.format(card.value / statistics.members)}
+							<span className="hidden sm:inline"> per medlem</span>
+							<span className="sm:hidden"> / medlem</span>
+						</p>
+					)}
+				</div>
+			))}
+		</div>
+	);
+}
+
+/** Hvor mange bøter hvert medlem har, flest ubetalte først. */
+function FinesPerMember({
+	groupId,
+	withApproval,
+	status,
+	range,
+	canSettle,
+}: {
+	groupId: string;
+	withApproval: boolean;
+	status: FineStatus | "alle";
+	range: DateRange;
+	canSettle: boolean;
+}) {
+	const trpc = useTRPC();
+	const members = useQuery(
+		trpc.fines.members.queryOptions({ groupId, ...range }),
+	);
+	// Det store tallet: ubetalte uten filter, ellers antallet med den valgte statusen.
+	const countFor = (member: MemberFines) =>
+		status === "alle"
+			? member.notApproved + member.approvedNotPaid
+			: {
+					pending: member.notApproved,
+					approved: member.approvedNotPaid,
+					paid: member.paid,
+					rejected: member.rejected,
+				}[status];
+	return (
+		<PageState query={members}>
+			{(all) => {
+				const list =
+					status === "alle"
+						? all.filter((m) => m.notApproved + m.approvedNotPaid + m.paid > 0)
+						: all
+								.filter((m) => countFor(m) > 0)
+								.sort(
+									(a, b) =>
+										countFor(b) - countFor(a) ||
+										a.user.name.localeCompare(b.user.name, "nb"),
+								);
+				return list.length === 0 ? (
+					<EmptyText>
+						{status === "alle"
+							? "Ingen bøter 🎉"
+							: "Ingen medlemmer har bøter med denne statusen."}
+					</EmptyText>
+				) : (
+					<Accordion.Root
+						multiple
+						className="overflow-hidden rounded-2xl border bg-card"
+					>
+						{list.map((member) => {
+							const shown = countFor(member);
+							return (
+								<Accordion.Item
+									key={member.user.id}
+									value={member.user.id}
+									className="border-b last:border-b-0"
+								>
+									<Accordion.Header>
+										<Accordion.Trigger className="group flex w-full items-center gap-4 px-4 py-3 text-left outline-none hover:bg-muted/40 focus-visible:bg-muted/60 sm:px-5">
+											<span
+												className={cn(
+													"w-10 shrink-0 text-center text-2xl font-bold tabular-nums",
+													shown === 0 && "text-muted-foreground",
+												)}
+												title={
+													status === "alle"
+														? "Ubetalte bøter"
+														: statusLabel(status, withApproval)
+												}
+											>
+												{shown}
+											</span>
+											<UserAvatar user={member.user} className="size-8" />
+											<span className="grid min-w-0 flex-1 leading-snug">
+												<span className="truncate font-semibold">
+													{member.user.name}
+												</span>
+												<span className="truncate text-sm text-muted-foreground">
+													{[
+														withApproval && member.notApproved > 0
+															? `${member.notApproved} ikke godkjent`
+															: null,
+														member.approvedNotPaid > 0
+															? `${member.approvedNotPaid} ${withApproval ? "godkjent, ikke betalt" : "ikke betalt"}`
+															: null,
+														`${member.paid} betalt`,
+														withApproval && member.rejected > 0
+															? `${member.rejected} avvist`
+															: null,
+													]
+														.filter(Boolean)
+														.join(" · ")}
+												</span>
+											</span>
+											<ChevronDownIcon className="size-4 shrink-0 text-muted-foreground transition-transform duration-300 group-data-[panel-open]:rotate-180" />
+										</Accordion.Trigger>
+									</Accordion.Header>
+									<Accordion.Panel>
+										<MemberFineList
+											groupId={groupId}
+											memberId={member.user.id}
+											status={status}
+											range={range}
+											canSettle={canSettle}
+										/>
+									</Accordion.Panel>
+								</Accordion.Item>
+							);
+						})}
+					</Accordion.Root>
+				);
+			}}
+		</PageState>
+	);
+}
+
+/**
+ * Bøtene til ett medlem, med statusfilteret som er valgt. Hentes først når trekkspillet åpnes
+ * (panelet monteres da), og hver bot kan åpnes som under «Alle bøter».
+ */
+function MemberFineList({
+	groupId,
+	memberId,
+	status,
+	range,
+	canSettle,
+}: {
+	groupId: string;
+	memberId: string;
+	status: FineStatus | "alle";
+	range: DateRange;
+	canSettle: boolean;
+}) {
+	const trpc = useTRPC();
+	const fines = useInfiniteQuery(
+		trpc.fines.page.infiniteQueryOptions(
+			{
+				groupId,
+				userId: memberId,
+				status: status === "alle" ? undefined : status,
+				...range,
+			},
+			{ getNextPageParam: (last) => last.nextPage },
+		),
+	);
+	const all = fines.data?.pages.flatMap((page) => page.fines) ?? [];
+
+	return (
+		<div className="grid gap-3 px-3 pb-4 sm:px-4">
 			<PageState query={{ ...fines, data: fines.data ? all : undefined }}>
 				{(list) =>
 					list.length === 0 ? (
-						<EmptyText>Ingen bøter 🎉</EmptyText>
+						<p className="px-1 text-sm text-muted-foreground">Ingen bøter.</p>
 					) : (
-						<div className="divide-y rounded-xl border">
+						<Accordion.Root
+							multiple
+							className="overflow-hidden rounded-xl border bg-background"
+						>
 							{list.map((fine) => (
-								<FineRow
+								<FineItem
 									key={fine.id}
 									fine={fine}
-									onOpen={() => setOpen(fine)}
+									canSettle={canSettle && fine.source === "tihlde"}
 								/>
 							))}
-						</div>
+						</Accordion.Root>
 					)
 				}
 			</PageState>
-
 			{fines.hasNextPage && (
 				<Button
 					variant="outline"
+					size="sm"
 					disabled={fines.isFetchingNextPage}
 					onClick={() => fines.fetchNextPage()}
 				>
 					{fines.isFetchingNextPage ? "Laster…" : "Last inn flere"}
 				</Button>
-			)}
-
-			{open && (
-				<FineDialog
-					fine={open}
-					canSettle={canSettle && open.source === "tihlde"}
-					onClose={() => setOpen(null)}
-				/>
-			)}
-			{giving && (
-				<GiveFineDialog group={group} onClose={() => setGiving(false)} />
 			)}
 		</div>
 	);
@@ -210,52 +711,64 @@ function FinesList({ group }: { group: GroupDetails }) {
 const settled = (status: FineStatus) =>
 	status === "paid" || status === "rejected";
 
-function FineRow({ fine, onOpen }: { fine: Fine; onOpen: () => void }) {
+const STATUS_STYLE: Record<FineStatus, string> = {
+	pending: "border-signal/60 text-foreground",
+	approved: "border-input text-foreground",
+	paid: "border-transparent bg-muted text-muted-foreground",
+	rejected: "border-transparent bg-muted text-muted-foreground line-through",
+};
+
+const fineDate = new Intl.DateTimeFormat("nb-NO", {
+	weekday: "long",
+	day: "numeric",
+	month: "long",
+	year: "numeric",
+	hour: "2-digit",
+	minute: "2-digit",
+});
+
+/**
+ * Én bot som trekkspill. Lukket: antall, navn og paragraf. Åpen: status, dato, hvem som ga den,
+ * bilde og begrunnelse, og (for botsjef og leder) godkjenning.
+ */
+function FineItem({ fine, canSettle }: { fine: Fine; canSettle: boolean }) {
 	return (
-		<button
-			type="button"
-			onClick={onOpen}
-			aria-label={`${formatFineCount(fine.count)} til ${fine.user.name}: ${fine.reason}`}
-			className="flex w-full items-center gap-4 rounded-xl p-4 text-left hover:bg-muted/50"
-		>
-			<div className="min-w-0 flex-1">
-				<p className="font-medium">{fine.user.name}</p>
-				<p className="text-sm">{formatLaw(fine.law)}</p>
-				<p className="flex items-center gap-1.5 truncate text-sm text-muted-foreground">
-					{fine.reason}
-					{fine.imageUrl && <ImageIcon className="size-3.5 shrink-0" />}
-				</p>
-				<p className="text-xs text-muted-foreground">
-					{fine.collective ? "Fellesbot" : `Fra ${fine.givenByName}`} ·{" "}
-					{formatRelative(fine.createdAt)}
-				</p>
-			</div>
-			<div className="grid justify-items-end gap-1">
-				<span
-					className={
-						settled(fine.status) ? "text-muted-foreground" : "font-semibold"
-					}
+		<Accordion.Item value={fine.id} className="border-b last:border-b-0">
+			<Accordion.Header>
+				<Accordion.Trigger
+					aria-label={`${formatFineCount(fine.count)} til ${fine.user.name}: ${formatLaw(fine.law)}`}
+					className="group flex w-full items-center gap-4 px-4 py-3.5 text-left outline-none hover:bg-muted/40 focus-visible:bg-muted/60 sm:px-5"
 				>
-					{formatFineCount(fine.count)}
-				</span>
-				<Badge variant={settled(fine.status) ? "secondary" : "outline"}>
-					{FINE_STATUS_LABEL[fine.status]}
-				</Badge>
-			</div>
-		</button>
+					<span
+						className={cn(
+							"w-8 shrink-0 text-center text-2xl font-bold tabular-nums",
+							settled(fine.status) && "text-muted-foreground",
+						)}
+					>
+						{fine.count}
+					</span>
+					<span className="grid min-w-0 flex-1 leading-snug">
+						<span className="truncate font-semibold">{fine.user.name}</span>
+						<span className="truncate text-sm text-muted-foreground">
+							{formatLaw(fine.law)}
+						</span>
+					</span>
+					{fine.status === "pending" && (
+						<span className="hidden shrink-0 rounded-md bg-signal px-2 py-0.5 text-[11px] font-bold tracking-wide text-signal-foreground uppercase sm:inline">
+							{FINE_STATUS_LABEL[fine.status]}
+						</span>
+					)}
+					<ChevronDownIcon className="size-4 shrink-0 text-muted-foreground transition-transform duration-300 group-data-[panel-open]:rotate-180" />
+				</Accordion.Trigger>
+			</Accordion.Header>
+			<Accordion.Panel>
+				<FineDetails fine={fine} canSettle={canSettle} />
+			</Accordion.Panel>
+		</Accordion.Item>
 	);
 }
 
-/** Detaljer om én bot, med bilde og (for botsjef og leder) godkjenning. */
-function FineDialog({
-	fine,
-	canSettle,
-	onClose,
-}: {
-	fine: Fine;
-	canSettle: boolean;
-	onClose: () => void;
-}) {
+function FineDetails({ fine, canSettle }: { fine: Fine; canSettle: boolean }) {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const setStatus = useMutation(
@@ -263,7 +776,6 @@ function FineDialog({
 			onSuccess: () => {
 				queryClient.invalidateQueries({ queryKey: trpc.fines.pathKey() });
 				toast.success("Boten er oppdatert");
-				onClose();
 			},
 			onError: (error) => toast.error(error.message),
 		}),
@@ -278,13 +790,13 @@ function FineDialog({
 	}[] =
 		fine.status === "pending"
 			? [
-					{ label: "Avvis", status: "rejected", variant: "destructive" },
 					{ label: "Godkjenn", status: "approved", variant: "default" },
+					{ label: "Avvis", status: "rejected", variant: "destructive" },
 				]
 			: fine.status === "approved"
 				? [
-						{ label: "Avvis", status: "rejected", variant: "destructive" },
 						{ label: "Marker som betalt", status: "paid", variant: "default" },
+						{ label: "Avvis", status: "rejected", variant: "destructive" },
 					]
 				: [
 						{
@@ -302,62 +814,65 @@ function FineDialog({
 			: fine.imageUrl;
 
 	return (
-		<Dialog open onOpenChange={(next) => !next && onClose()}>
-			<DialogContent>
-				<DialogHeader>
-					<DialogTitle>
-						{formatFineCount(fine.count)} til {fine.user.name}
-					</DialogTitle>
-					<DialogDescription>{formatLaw(fine.law)}</DialogDescription>
-				</DialogHeader>
-				<dl className="grid gap-3 text-sm">
-					<Detail label="Status">{FINE_STATUS_LABEL[fine.status]}</Detail>
-					<Detail label="Begrunnelse">{fine.reason}</Detail>
-					<Detail label="Gitt av">
-						{fine.collective ? "Fellesbot" : fine.givenByName}
-					</Detail>
-					<Detail label="Når">
-						{new Date(fine.createdAt).toLocaleString("nb-NO")}
-					</Detail>
-					{fine.defense && <Detail label="Forsvar">{fine.defense}</Detail>}
-				</dl>
+		<div className="grid gap-4 px-4 pb-5 sm:px-5 sm:pl-[4.25rem]">
+			<div className="flex flex-wrap items-center gap-2">
+				<span
+					className={cn(
+						"rounded-md border px-2 py-0.5 text-xs font-semibold",
+						STATUS_STYLE[fine.status],
+					)}
+				>
+					{FINE_STATUS_LABEL[fine.status]}
+				</span>
+				<span className="text-sm text-muted-foreground first-letter:uppercase">
+					{fineDate.format(new Date(fine.createdAt))}
+				</span>
+			</div>
+			<p className="text-sm">
+				<span className="text-muted-foreground">Fra </span>
+				{fine.collective ? "Fellesbot" : fine.givenByName}
+			</p>
+			<div className="grid gap-4 sm:grid-cols-[minmax(0,14rem)_1fr]">
 				{fine.imageUrl && imageSrc && (
 					<img
 						src={imageSrc}
 						alt="Bildet til boten"
-						className="max-h-80 w-full rounded-lg object-contain"
+						loading="lazy"
+						className="max-h-80 w-full rounded-xl border object-cover"
 					/>
 				)}
-				{canSettle && (
-					<DialogFooter>
-						{actions.map((action) => (
-							<Button
-								key={action.status}
-								variant={action.variant}
-								disabled={setStatus.isPending}
-								onClick={() => change(action.status)}
-							>
-								{action.label}
-							</Button>
-						))}
-					</DialogFooter>
-				)}
-			</DialogContent>
-		</Dialog>
-	);
-}
-
-function Detail({
-	label,
-	children,
-}: {
-	label: string;
-	children: React.ReactNode;
-}) {
-	return (
-		<div>
-			<dt className="text-muted-foreground">{label}</dt>
-			<dd className="whitespace-pre-wrap">{children}</dd>
+				<div className="grid content-start gap-3 text-sm">
+					<div>
+						<p className="text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+							Begrunnelse
+						</p>
+						<p className="break-words whitespace-pre-wrap">{fine.reason}</p>
+					</div>
+					{fine.defense && (
+						<div>
+							<p className="text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+								Forsvar
+							</p>
+							<p className="break-words whitespace-pre-wrap">{fine.defense}</p>
+						</div>
+					)}
+				</div>
+			</div>
+			{canSettle && (
+				<div className="flex flex-wrap gap-2">
+					{actions.map((action) => (
+						<Button
+							key={action.status}
+							size="sm"
+							variant={action.variant}
+							disabled={setStatus.isPending}
+							onClick={() => change(action.status)}
+						>
+							{action.label}
+						</Button>
+					))}
+				</div>
+			)}
 		</div>
 	);
 }

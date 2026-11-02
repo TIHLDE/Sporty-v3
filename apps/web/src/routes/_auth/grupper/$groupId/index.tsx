@@ -1,5 +1,5 @@
 import { formatRelative } from "@sporty/api/rest/lib/dates";
-import type { GroupDetails, Member } from "@sporty/api/rest/types";
+import type { Event, GroupDetails, Member } from "@sporty/api/rest/types";
 import {
 	Avatar,
 	AvatarFallback,
@@ -35,7 +35,8 @@ import {
 import { useState } from "react";
 
 import { AnnouncementsTab } from "@/components/announcements";
-import { EventCard } from "@/components/event-card";
+import { EventBoard } from "@/components/event-board";
+import { EventSheet } from "@/components/event-sheet";
 import { GroupAvatar } from "@/components/group-avatar";
 import { Markdown } from "@/components/markdown";
 import { MemberDialog } from "@/components/member-dialog";
@@ -83,8 +84,8 @@ function GroupView({ group }: { group: GroupDetails }) {
 	const finesHere = !group.parentId && group.fines.activated;
 
 	return (
-		<div className="grid max-w-4xl grid-cols-1 gap-6">
-			{group.parentId && (
+		<div className="grid w-full max-w-5xl grid-cols-1 gap-5">
+			{group.parentId ? (
 				<Link
 					to="/grupper/$groupId"
 					params={{ groupId: group.parentId }}
@@ -93,20 +94,35 @@ function GroupView({ group }: { group: GroupDetails }) {
 					<ArrowLeftIcon className="size-4" />
 					Til hovedgruppen
 				</Link>
+			) : (
+				<Link
+					to="/grupper"
+					className="flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+				>
+					<ArrowLeftIcon className="size-4" />
+					Grupper
+				</Link>
 			)}
 
-			{group.coverUrl && (
+			{/* Forsidebildet, eller gruppefargen når gruppen ikke har et. */}
+			{group.coverUrl ? (
 				<img
 					src={group.coverUrl}
 					alt=""
-					className="aspect-16/5 w-full rounded-xl object-cover"
+					className="aspect-16/5 max-h-48 w-full rounded-2xl object-cover"
+				/>
+			) : (
+				<div
+					aria-hidden
+					className="h-20 rounded-2xl sm:h-28"
+					style={{ backgroundColor: group.color }}
 				/>
 			)}
 
 			<div className="flex flex-wrap items-center gap-4">
 				<GroupAvatar group={group} size={64} />
 				<div className="min-w-0 flex-1">
-					<h1 className="text-2xl font-semibold">{group.name}</h1>
+					<h1 className="text-3xl font-bold tracking-tight">{group.name}</h1>
 					{group.description && (
 						<Markdown className="text-muted-foreground">
 							{group.description}
@@ -157,7 +173,10 @@ function GroupView({ group }: { group: GroupDetails }) {
 			</div>
 
 			<Tabs defaultValue="arrangementer">
-				<TabsList className="max-w-full justify-start overflow-x-auto">
+				<TabsList
+					variant="line"
+					className="h-auto max-w-full justify-start gap-4 overflow-x-auto border-b p-0 pb-[5px] [&>[data-slot=tabs-trigger]]:flex-none [&>[data-slot=tabs-trigger]]:px-0"
+				>
 					<TabsTrigger value="arrangementer">Arrangementer</TabsTrigger>
 					<TabsTrigger value="kunngjoringer">Kunngjøringer</TabsTrigger>
 					<TabsTrigger value="avstemninger">Avstemninger</TabsTrigger>
@@ -252,7 +271,9 @@ function GroupView({ group }: { group: GroupDetails }) {
  */
 function GroupEvents({ group }: { group: GroupDetails }) {
 	const trpc = useTRPC();
+	const me = useQuery(trpc.me.queryOptions());
 	const [when, setWhen] = useState<"upcoming" | "past">("upcoming");
+	const [selected, setSelected] = useState<Event | null>(null);
 	const groupIds = [group.id, ...group.subgroups.map((s) => s.id)];
 	const results = useQueries({
 		queries: groupIds.map((groupId) =>
@@ -264,34 +285,34 @@ function GroupEvents({ group }: { group: GroupDetails }) {
 		isPending: results.some((r) => r.isPending),
 		isError: Boolean(failed),
 		error: failed?.error ?? null,
+		// Hovedgruppens liste har allerede med undergruppene du er med i, så de samme arrangementene
+		// kommer to ganger. Én per id (undergruppe-spørringene trengs for dem du ikke er med i).
 		data: results.every((r) => r.data)
-			? results
-					.flatMap((r) => r.data ?? [])
-					.sort((a, b) =>
-						when === "upcoming"
-							? a.start.localeCompare(b.start)
-							: b.start.localeCompare(a.start),
-					)
+			? [
+					...new Map(
+						results.flatMap((r) => r.data ?? []).map((e) => [e.id, e]),
+					).values(),
+				].sort((a, b) =>
+					when === "upcoming"
+						? a.start.localeCompare(b.start)
+						: b.start.localeCompare(a.start),
+				)
 			: undefined,
 	};
 
 	return (
 		<div className="grid gap-3">
-			<div className="flex gap-2">
-				<Button
-					size="sm"
-					variant={when === "upcoming" ? "secondary" : "ghost"}
-					onClick={() => setWhen("upcoming")}
+			<div className="flex items-baseline gap-3">
+				<h2 className="text-xl font-bold">
+					{when === "upcoming" ? "Kommende" : "Tidligere"}
+				</h2>
+				<button
+					type="button"
+					className="ml-auto text-sm font-semibold hover:underline"
+					onClick={() => setWhen(when === "upcoming" ? "past" : "upcoming")}
 				>
-					Kommende
-				</Button>
-				<Button
-					size="sm"
-					variant={when === "past" ? "secondary" : "ghost"}
-					onClick={() => setWhen("past")}
-				>
-					Tidligere
-				</Button>
+					{when === "upcoming" ? "Vis tidligere" : "Vis kommende"}
+				</button>
 			</div>
 			<PageState query={events}>
 				{(data) =>
@@ -302,16 +323,21 @@ function GroupEvents({ group }: { group: GroupDetails }) {
 								: "Ingen tidligere arrangementer."}
 						</EmptyText>
 					) : (
-						data.map((event) => (
-							<EventCard
-								key={event.id}
-								event={event}
-								showGroup={event.groupId !== group.id}
-							/>
-						))
+						<EventBoard
+							label={
+								when === "upcoming"
+									? "Kommende arrangementer"
+									: "Tidligere arrangementer"
+							}
+							events={data}
+							myId={me.data?.id}
+							showGroup={(event) => event.groupId !== group.id}
+							onSelect={setSelected}
+						/>
 					)
 				}
 			</PageState>
+			<EventSheet event={selected} onClose={() => setSelected(null)} />
 		</div>
 	);
 }
