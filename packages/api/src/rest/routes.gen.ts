@@ -40,6 +40,11 @@ import * as r1 from "./routes/groups/[groupId]/members/[userId]/position";
 import * as r2 from "./routes/groups/[groupId]/members/[userId]/role";
 import * as rMemberSubgroups from "./routes/groups/[groupId]/members/[userId]/subgroups";
 import * as r17 from "./routes/groups/[groupId]/members/index";
+import * as rOfficePeriodHolders from "./routes/groups/[groupId]/office-periods/[periodId]/holders";
+import * as rOfficePeriod from "./routes/groups/[groupId]/office-periods/[periodId]/index";
+import * as rOfficePeriods from "./routes/groups/[groupId]/office-periods/index";
+import * as rOffice from "./routes/groups/[groupId]/offices/[officeId]";
+import * as rOffices from "./routes/groups/[groupId]/offices/index";
 import * as r18 from "./routes/groups/[groupId]/payments";
 import * as r19 from "./routes/groups/[groupId]/polls";
 import * as r5 from "./routes/groups/[groupId]/positions/[positionId]";
@@ -80,7 +85,16 @@ export const routes = [
 	{ pattern: "/groups/:groupId/members/:userId/role", module: r2 },
 	{ pattern: "/groups/:groupId/export/attendance", module: r3 },
 	{ pattern: "/groups/:groupId/export/results", module: r4 },
+	{
+		pattern: "/groups/:groupId/office-periods/:periodId/holders",
+		module: rOfficePeriodHolders,
+	},
 	{ pattern: "/groups/:groupId/positions/:positionId", module: r5 },
+	{ pattern: "/groups/:groupId/offices/:officeId", module: rOffice },
+	{
+		pattern: "/groups/:groupId/office-periods/:periodId",
+		module: rOfficePeriod,
+	},
 	{
 		pattern: "/groups/:groupId/match-stat-types/:typeId",
 		module: rMatchStatType,
@@ -111,6 +125,8 @@ export const routes = [
 	{ pattern: "/groups/:groupId/payments", module: r18 },
 	{ pattern: "/groups/:groupId/polls", module: r19 },
 	{ pattern: "/groups/:groupId/positions", module: r20 },
+	{ pattern: "/groups/:groupId/offices", module: rOffices },
+	{ pattern: "/groups/:groupId/office-periods", module: rOfficePeriods },
 	{ pattern: "/groups/:groupId/stats", module: rGroupStats },
 	{ pattern: "/groups/:groupId/match-stat-types", module: rMatchStatTypes },
 	{ pattern: "/groups/:groupId/subgroups", module: r21 },

@@ -83,6 +83,8 @@ export interface Member {
 	subgroupNames: string[];
 	/** Id-ene til de samme undergruppene, til redigering. */
 	subgroupIds: string[];
+	/** Vervene medlemmet har i perioden som gjelder nå, f.eks. ["Lagleder"]. Fra hovedgruppen. */
+	offices: string[];
 }
 
 export interface GroupDetails extends Group {
@@ -506,6 +508,47 @@ export interface UpdateGroupInput {
 	usesPositions?: boolean;
 	/** Bare på hovedgrupper: kampfakta gjelder hele laget. */
 	usesMatchFacts?: boolean;
+}
+
+/** Et verv i laget, f.eks. Lagleder eller Botsjef. Hver hovedgruppe har sin egen liste. */
+export interface Office {
+	id: string;
+	name: string;
+}
+
+/** En periode i vervhistorikken, med hvem som hadde hvert verv. */
+export interface OfficePeriod {
+	id: string;
+	/** Tom når perioden ikke har navn. Da vises datoene. */
+	name: string;
+	/** Datoer som «2026-01-01». Begge dagene er med i perioden. */
+	from: string;
+	to: string;
+	/** Hvem som hadde vervene, i samme rekkefølge som OfficeHistory.offices. Bare verv med noen. */
+	holders: { office: Office; users: User[] }[];
+}
+
+/**
+ * Vervhistorikken til laget. Vervene hører til hovedgruppen, også når man ser fra en undergruppe.
+ * Den endres bare på nettsiden; appen viser den.
+ */
+export interface OfficeHistory {
+	/** Hovedgruppen vervene hører til. */
+	groupId: string;
+	/** Alfabetisk. */
+	offices: Office[];
+	/** Nyeste først. */
+	periods: OfficePeriod[];
+	/** Admin i hovedgruppen, som kan endre vervene og periodene. */
+	canEdit: boolean;
+}
+
+export interface OfficePeriodInput {
+	/** Valgfritt. */
+	name: string;
+	/** «2026-01-01». */
+	from: string;
+	to: string;
 }
 
 export interface CreateSubgroupInput {

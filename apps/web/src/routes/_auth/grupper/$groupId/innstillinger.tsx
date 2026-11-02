@@ -1,5 +1,19 @@
 import { GROUP_COLORS } from "@sporty/api/rest/lib/group-colors";
-import type { GroupDetails, Member, Role } from "@sporty/api/rest/types";
+import type {
+	GroupDetails,
+	Member,
+	OfficeHistory,
+	OfficePeriod,
+	OfficePeriodInput,
+	Role,
+} from "@sporty/api/rest/types";
+import {
+	Accordion,
+	AccordionHeader,
+	AccordionItem,
+	AccordionPanel,
+	AccordionTrigger,
+} from "@sporty/ui/components/accordion";
 import { Badge } from "@sporty/ui/components/badge";
 import { Button, buttonVariants } from "@sporty/ui/components/button";
 import {
@@ -41,11 +55,12 @@ import {
 	Trash2Icon,
 	TrophyIcon,
 } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { CheckboxField } from "@/components/checkbox-field";
 import { GroupAvatar } from "@/components/group-avatar";
+import { formatPeriodDates, isCurrentPeriod } from "@/components/offices";
 import { EmptyText, PageState } from "@/components/page-state";
 import { uploadFile } from "@/lib/upload";
 import { useTRPC } from "@/utils/trpc";
@@ -96,8 +111,37 @@ function useAdminMutationOptions(message?: string) {
 }
 
 function Settings({ group }: { group: GroupDetails }) {
+	const isAdmin = group.canAdmin;
+	const isSubgroup = Boolean(group.parentId);
+	// Samme vilkår som seksjonene under, til «Åpne alle».
+	const sectionIds = [
+		isAdmin && "gruppe",
+		"medlemmer",
+		isAdmin && "posisjoner",
+		isAdmin && !isSubgroup && "kampfakta",
+		isAdmin && !isSubgroup && "vervhistorikk",
+		isAdmin && !isSubgroup && "undergrupper",
+		isAdmin && isSubgroup && "undergruppe-medlemmer",
+		isAdmin && isSubgroup && "slett-undergruppe",
+		"eksport",
+	].filter((id): id is string => Boolean(id));
+	const [open, setOpen] = useState<string[]>([]);
+	const allOpen = sectionIds.every((id) => open.includes(id));
+
+	// En lenke til …/innstillinger#vervhistorikk åpner den seksjonen og ruller dit. Adressen finnes
+	// bare i nettleseren, så det skjer etter første tegning.
+	useEffect(() => {
+		const id = window.location.hash.slice(1);
+		if (!id) return;
+		const frame = requestAnimationFrame(() => {
+			setOpen([id]);
+			document.getElementById(id)?.scrollIntoView({ block: "start" });
+		});
+		return () => cancelAnimationFrame(frame);
+	}, []);
+
 	return (
-		<div className="grid grid-cols-1 gap-8">
+		<div className="grid w-full max-w-4xl grid-cols-1 gap-8">
 			<Link
 				to="/grupper/$groupId"
 				params={{ groupId: group.id }}
@@ -106,40 +150,74 @@ function Settings({ group }: { group: GroupDetails }) {
 				<ArrowLeftIcon className="size-4" />
 				{group.name}
 			</Link>
-			<h1 className="text-2xl font-semibold">Innstillinger</h1>
+			<div className="flex flex-wrap items-center justify-between gap-2">
+				<h1 className="text-2xl font-semibold">Innstillinger</h1>
+				<Button
+					variant="ghost"
+					size="sm"
+					onClick={() => setOpen(allOpen ? [] : sectionIds)}
+				>
+					{allOpen ? "Lukk alle" : "Åpne alle"}
+				</Button>
+			</div>
 
-			{group.canAdmin && <GroupDetailsSection group={group} />}
-			<MembersSection group={group} />
-			{group.canAdmin && <PositionsSection group={group} />}
-			{group.canAdmin && !group.parentId && <MatchFactsSection group={group} />}
-			{group.canAdmin && !group.parentId && <SubgroupsSection group={group} />}
-			{group.canAdmin && group.parentId && (
-				<SubgroupAdminSection group={group} />
-			)}
-			<ExportSection group={group} />
+			<Accordion
+				multiple
+				value={open}
+				onValueChange={(value) => setOpen(value as string[])}
+				className="gap-3"
+			>
+				{isAdmin && <GroupDetailsSection group={group} />}
+				<MembersSection group={group} />
+				{isAdmin && <PositionsSection group={group} />}
+				{isAdmin && !isSubgroup && <MatchFactsSection group={group} />}
+				{isAdmin && !isSubgroup && <OfficesSection group={group} />}
+				{isAdmin && !isSubgroup && <SubgroupsSection group={group} />}
+				{isAdmin && isSubgroup && <SubgroupAdminSection group={group} />}
+				<ExportSection group={group} />
+			</Accordion>
 		</div>
 	);
 }
 
+/**
+ * Én seksjon på siden, som kan foldes ut og sammen. Innholdet ligger i siden også når den er
+ * lukket (`hiddenUntilFound`), så søk i nettleseren (⌘F) finner det og åpner seksjonen.
+ */
 function Section({
+	id,
 	title,
 	description,
 	children,
 }: {
+	/** Verdien i accordionen, og ankeret i lenker som …/innstillinger#vervhistorikk. */
+	id: string;
 	title: string;
 	description?: string;
 	children: ReactNode;
 }) {
 	return (
-		<section className="grid gap-4 rounded-xl border p-5">
-			<div>
-				<h2 className="text-lg font-medium">{title}</h2>
-				{description && (
-					<p className="text-sm text-muted-foreground">{description}</p>
-				)}
-			</div>
-			{children}
-		</section>
+		<AccordionItem
+			value={id}
+			id={id}
+			className="scroll-mt-20 rounded-xl border"
+		>
+			<AccordionHeader>
+				<AccordionTrigger className="rounded-xl p-5 hover:bg-muted/40">
+					<span className="grid gap-0.5">
+						<span className="text-lg font-medium">{title}</span>
+						{description && (
+							<span className="text-sm font-normal text-muted-foreground">
+								{description}
+							</span>
+						)}
+					</span>
+				</AccordionTrigger>
+			</AccordionHeader>
+			<AccordionPanel hiddenUntilFound className="grid gap-4 px-5 pb-5">
+				{children}
+			</AccordionPanel>
+		</AccordionItem>
 	);
 }
 
@@ -169,6 +247,468 @@ function ColorPicker({
 	);
 }
 
+/**
+ * (Admin i hovedgruppen) Vervhistorikken: vervene laget har, periodene, og hvem som hadde hvert
+ * verv i hver periode. Endres bare her på nettsiden; appen viser den.
+ */
+function OfficesSection({ group }: { group: GroupDetails }) {
+	const trpc = useTRPC();
+	const history = useQuery(
+		trpc.groups.offices.queryOptions({ groupId: group.id }),
+	);
+
+	return (
+		<Section
+			id="vervhistorikk"
+			title="Vervhistorikk"
+			description="Hvem som hadde hvilke verv i laget, periode for periode. Medlemmene ser historikken i appen og på nettsiden."
+		>
+			<PageState query={history}>
+				{(data) => (
+					<>
+						<OfficeList group={group} history={data} />
+						<OfficePeriods group={group} history={data} />
+					</>
+				)}
+			</PageState>
+		</Section>
+	);
+}
+
+/** Vervene i laget. De brukes i alle periodene. */
+function OfficeList({
+	group,
+	history,
+}: {
+	group: GroupDetails;
+	history: OfficeHistory;
+}) {
+	const trpc = useTRPC();
+	const options = useAdminMutationOptions();
+	const create = useMutation(
+		trpc.groupAdmin.createOffice.mutationOptions(options),
+	);
+	const rename = useMutation(
+		trpc.groupAdmin.renameOffice.mutationOptions(options),
+	);
+	const remove = useMutation(
+		trpc.groupAdmin.deleteOffice.mutationOptions(options),
+	);
+	const [newName, setNewName] = useState("");
+	const [editing, setEditing] = useState<{ id: string; name: string } | null>(
+		null,
+	);
+	const busy = create.isPending || rename.isPending || remove.isPending;
+
+	return (
+		<div className="grid gap-2">
+			<div>
+				<h3 className="font-medium">Vervene i laget</h3>
+				<p className="text-sm text-muted-foreground">
+					Lag de vervene dere faktisk har. De brukes i alle periodene.
+				</p>
+			</div>
+			<div className="divide-y rounded-lg border">
+				{history.offices.length === 0 && (
+					<p className="p-3 text-sm text-muted-foreground">Ingen verv ennå.</p>
+				)}
+				{history.offices.map((office) => (
+					<div key={office.id} className="flex items-center gap-2 p-2">
+						{editing?.id === office.id ? (
+							<>
+								<Input
+									aria-label="Nytt navn"
+									value={editing.name}
+									onChange={(e) =>
+										setEditing({ id: office.id, name: e.target.value })
+									}
+									className="h-8"
+									maxLength={40}
+								/>
+								<Button
+									size="sm"
+									disabled={!editing.name.trim() || busy}
+									onClick={() =>
+										rename.mutate(
+											{
+												groupId: group.id,
+												officeId: office.id,
+												name: editing.name.trim(),
+											},
+											{ onSuccess: () => setEditing(null) },
+										)
+									}
+								>
+									Lagre
+								</Button>
+								<Button
+									size="sm"
+									variant="ghost"
+									onClick={() => setEditing(null)}
+								>
+									Avbryt
+								</Button>
+							</>
+						) : (
+							<>
+								<span className="flex-1 px-1">{office.name}</span>
+								<Button
+									size="icon"
+									variant="ghost"
+									aria-label={`Gi ${office.name} nytt navn`}
+									onClick={() =>
+										setEditing({ id: office.id, name: office.name })
+									}
+								>
+									<PencilIcon />
+								</Button>
+								<Button
+									size="icon"
+									variant="ghost"
+									aria-label={`Slett ${office.name}`}
+									disabled={busy}
+									onClick={() =>
+										window.confirm(
+											`Slette ${office.name}? Vervet fjernes også fra alle periodene i historikken.`,
+										) &&
+										remove.mutate({ groupId: group.id, officeId: office.id })
+									}
+								>
+									<Trash2Icon className="text-destructive" />
+								</Button>
+							</>
+						)}
+					</div>
+				))}
+			</div>
+			<form
+				className="flex gap-2"
+				onSubmit={(e) => {
+					e.preventDefault();
+					if (newName.trim())
+						create.mutate(
+							{ groupId: group.id, name: newName.trim() },
+							{ onSuccess: () => setNewName("") },
+						);
+				}}
+			>
+				<Input
+					aria-label="Nytt verv"
+					value={newName}
+					onChange={(e) => setNewName(e.target.value)}
+					placeholder="Nytt verv, f.eks. Botsjef"
+					maxLength={40}
+				/>
+				<Button type="submit" disabled={!newName.trim() || busy}>
+					Legg til
+				</Button>
+			</form>
+		</div>
+	);
+}
+
+/** Periodene, nyeste først, med hvem som har hvert verv. */
+function OfficePeriods({
+	group,
+	history,
+}: {
+	group: GroupDetails;
+	history: OfficeHistory;
+}) {
+	const [creating, setCreating] = useState(false);
+	const [editing, setEditing] = useState<OfficePeriod | null>(null);
+
+	return (
+		<div className="grid gap-2">
+			<div className="flex flex-wrap items-center justify-between gap-2">
+				<h3 className="font-medium">Perioder</h3>
+				<Button size="sm" onClick={() => setCreating(true)}>
+					<PlusIcon />
+					Ny periode
+				</Button>
+			</div>
+			{history.periods.length === 0 && (
+				<EmptyText>
+					Ingen perioder ennå. Lag f.eks. «Sesongen 2026» og velg hvem som har
+					hvert verv.
+				</EmptyText>
+			)}
+			{history.periods.map((period) => (
+				<PeriodCard
+					key={period.id}
+					group={group}
+					history={history}
+					period={period}
+					onEdit={() => setEditing(period)}
+				/>
+			))}
+			{creating && (
+				<PeriodDialog groupId={group.id} onClose={() => setCreating(false)} />
+			)}
+			{editing && (
+				<PeriodDialog
+					groupId={group.id}
+					period={editing}
+					onClose={() => setEditing(null)}
+				/>
+			)}
+		</div>
+	);
+}
+
+function PeriodCard({
+	group,
+	history,
+	period,
+	onEdit,
+}: {
+	group: GroupDetails;
+	history: OfficeHistory;
+	period: OfficePeriod;
+	onEdit: () => void;
+}) {
+	const trpc = useTRPC();
+	const remove = useMutation(
+		trpc.groupAdmin.deleteOfficePeriod.mutationOptions(
+			useAdminMutationOptions("Perioden er slettet"),
+		),
+	);
+	const [choosingFor, setChoosingFor] = useState<string | null>(null);
+	const label = period.name || formatPeriodDates(period);
+	const office = history.offices.find((o) => o.id === choosingFor);
+
+	return (
+		<div className="grid gap-2 rounded-lg border p-3">
+			<div className="flex items-center gap-2">
+				<div className="min-w-0 flex-1">
+					<p className="font-medium">
+						{label}
+						{isCurrentPeriod(period) && (
+							<Badge variant="secondary" className="ml-2">
+								Nå
+							</Badge>
+						)}
+					</p>
+					{period.name && (
+						<p className="text-sm text-muted-foreground">
+							{formatPeriodDates(period)}
+						</p>
+					)}
+				</div>
+				<Button
+					size="icon"
+					variant="ghost"
+					aria-label={`Endre ${label}`}
+					onClick={onEdit}
+				>
+					<PencilIcon />
+				</Button>
+				<Button
+					size="icon"
+					variant="ghost"
+					aria-label={`Slett ${label}`}
+					disabled={remove.isPending}
+					onClick={() =>
+						window.confirm(
+							`Slette ${label}? Hvem som hadde vervene i perioden, slettes også.`,
+						) && remove.mutate({ groupId: group.id, periodId: period.id })
+					}
+				>
+					<Trash2Icon className="text-destructive" />
+				</Button>
+			</div>
+			{history.offices.length === 0 ? (
+				<p className="text-sm text-muted-foreground">Lag vervene over først.</p>
+			) : (
+				<div className="divide-y rounded-md border">
+					{history.offices.map((o) => {
+						const users =
+							period.holders.find((h) => h.office.id === o.id)?.users ?? [];
+						return (
+							<div key={o.id} className="flex items-center gap-2 px-3 py-2">
+								<span className="w-40 shrink-0 text-sm">{o.name}</span>
+								<span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+									{users.map((u) => u.name).join(", ") || "–"}
+								</span>
+								<Button
+									size="xs"
+									variant="ghost"
+									onClick={() => setChoosingFor(o.id)}
+								>
+									Velg
+								</Button>
+							</div>
+						);
+					})}
+				</div>
+			)}
+			{office && (
+				<HoldersDialog
+					group={group}
+					period={period}
+					office={office}
+					holderIds={
+						period.holders
+							.find((h) => h.office.id === office.id)
+							?.users.map((u) => u.id) ?? []
+					}
+					onClose={() => setChoosingFor(null)}
+				/>
+			)}
+		</div>
+	);
+}
+
+/** Ny periode, eller endre navnet og datoene til en som finnes. */
+function PeriodDialog({
+	groupId,
+	period,
+	onClose,
+}: {
+	groupId: string;
+	period?: OfficePeriod;
+	onClose: () => void;
+}) {
+	const trpc = useTRPC();
+	const options = useAdminMutationOptions(
+		period ? "Perioden er lagret" : "Perioden er laget",
+	);
+	const done = {
+		...options,
+		onSuccess: () => {
+			options.onSuccess();
+			onClose();
+		},
+	};
+	const create = useMutation(
+		trpc.groupAdmin.createOfficePeriod.mutationOptions(done),
+	);
+	const update = useMutation(
+		trpc.groupAdmin.updateOfficePeriod.mutationOptions(done),
+	);
+	const [input, setInput] = useState<OfficePeriodInput>({
+		name: period?.name ?? "",
+		from: period?.from ?? "",
+		to: period?.to ?? "",
+	});
+	const valid = input.from && input.to && input.from <= input.to;
+	const busy = create.isPending || update.isPending;
+
+	const save = () => {
+		const data = { ...input, name: input.name.trim(), groupId };
+		if (period) update.mutate({ ...data, periodId: period.id });
+		else create.mutate(data);
+	};
+
+	return (
+		<Dialog open onOpenChange={(next) => !next && onClose()}>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>{period ? "Endre periode" : "Ny periode"}</DialogTitle>
+				</DialogHeader>
+				<div className="grid gap-2">
+					<Label htmlFor="period-name">Navn (valgfritt)</Label>
+					<Input
+						id="period-name"
+						value={input.name}
+						onChange={(e) => setInput({ ...input, name: e.target.value })}
+						placeholder="F.eks. Sesongen 2026"
+						maxLength={60}
+					/>
+				</div>
+				<div className="grid grid-cols-2 gap-3">
+					<div className="grid gap-2">
+						<Label htmlFor="period-from">Fra</Label>
+						<Input
+							id="period-from"
+							type="date"
+							value={input.from}
+							onChange={(e) => setInput({ ...input, from: e.target.value })}
+						/>
+					</div>
+					<div className="grid gap-2">
+						<Label htmlFor="period-to">Til</Label>
+						<Input
+							id="period-to"
+							type="date"
+							value={input.to}
+							min={input.from || undefined}
+							onChange={(e) => setInput({ ...input, to: e.target.value })}
+						/>
+					</div>
+				</div>
+				<DialogFooter>
+					<Button disabled={!valid || busy} onClick={save}>
+						{period ? "Lagre" : "Lag periode"}
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+/** Hvem som har ett verv i en periode. Velges blant medlemmene i laget. */
+function HoldersDialog({
+	group,
+	period,
+	office,
+	holderIds,
+	onClose,
+}: {
+	group: GroupDetails;
+	period: OfficePeriod;
+	office: { id: string; name: string };
+	holderIds: string[];
+	onClose: () => void;
+}) {
+	const trpc = useTRPC();
+	const options = useAdminMutationOptions();
+	const save = useMutation(
+		trpc.groupAdmin.setOfficeHolders.mutationOptions({
+			...options,
+			onSuccess: () => {
+				options.onSuccess();
+				onClose();
+			},
+		}),
+	);
+	// Tidligere medlemmer som allerede har vervet, beholdes selv om de ikke står i listen.
+	const [selected, setSelected] = useState(holderIds);
+
+	return (
+		<Dialog open onOpenChange={(next) => !next && onClose()}>
+			<DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
+				<DialogHeader>
+					<DialogTitle>{office.name}</DialogTitle>
+					<DialogDescription>
+						{period.name || formatPeriodDates(period)}
+					</DialogDescription>
+				</DialogHeader>
+				<MemberPicker
+					members={group.members}
+					selected={selected}
+					onChange={setSelected}
+				/>
+				<DialogFooter>
+					<Button
+						disabled={save.isPending}
+						onClick={() =>
+							save.mutate({
+								groupId: group.id,
+								periodId: period.id,
+								officeId: office.id,
+								userIds: selected,
+							})
+						}
+					>
+						Lagre
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
 /** (Admin) Navn, beskrivelse og farge. */
 function GroupDetailsSection({ group }: { group: GroupDetails }) {
 	const trpc = useTRPC();
@@ -185,6 +725,7 @@ function GroupDetailsSection({ group }: { group: GroupDetails }) {
 
 	return (
 		<Section
+			id="gruppe"
 			title="Gruppe"
 			description={
 				group.logoUrl
@@ -252,6 +793,7 @@ function MembersSection({ group }: { group: GroupDetails }) {
 
 	return (
 		<Section
+			id="medlemmer"
 			title="Medlemmer"
 			description={group.canAdmin ? undefined : "Bare admin kan endre roller."}
 		>
@@ -458,6 +1000,7 @@ function PositionsSection({ group }: { group: GroupDetails }) {
 
 	return (
 		<Section
+			id="posisjoner"
 			title="Posisjoner"
 			description="Lag posisjonene selv, f.eks. Keeper og Spiss eller Kant og Linje."
 		>
@@ -629,6 +1172,7 @@ function MatchFactsSection({ group }: { group: GroupDetails }) {
 
 	return (
 		<Section
+			id="kampfakta"
 			title="Kampfakta"
 			description="Resultat og hendelser som mål og kort på kampene, også i undergruppene. Sub-/admin registrerer dem på hver kamp."
 		>
@@ -785,6 +1329,7 @@ function SubgroupsSection({ group }: { group: GroupDetails }) {
 	const [creating, setCreating] = useState(false);
 	return (
 		<Section
+			id="undergrupper"
 			title="Undergrupper"
 			description="F.eks. 11'er og 7'er, med medlemmer fra hovedgruppen."
 		>
@@ -993,6 +1538,7 @@ function SubgroupAdminSection({ group }: { group: GroupDetails }) {
 	return (
 		<>
 			<Section
+				id="undergruppe-medlemmer"
 				title="Medlemmer i undergruppen"
 				description="De som tas ut, mister tilgangen til alt i undergruppen."
 			>
@@ -1023,6 +1569,7 @@ function SubgroupAdminSection({ group }: { group: GroupDetails }) {
 				</Button>
 			</Section>
 			<Section
+				id="slett-undergruppe"
 				title="Slett undergruppe"
 				description="Arrangementer, kunngjøringer, avstemninger og chatten i undergruppen slettes for godt."
 			>
@@ -1116,6 +1663,7 @@ function ExportSection({ group }: { group: GroupDetails }) {
 	const base = `/api/groups/${encodeURIComponent(group.id)}/export`;
 	return (
 		<Section
+			id="eksport"
 			title="Eksport"
 			description="Lastes ned som CSV, som kan åpnes i Excel, Numbers eller Google Regneark."
 		>

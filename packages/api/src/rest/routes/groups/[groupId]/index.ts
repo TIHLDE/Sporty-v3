@@ -16,6 +16,7 @@ import {
 	getGroupMatchFacts,
 	requireMainGroup,
 } from "../../../server/match-facts";
+import { getCurrentOffices } from "../../../server/offices";
 import { prisma } from "../../../server/prisma";
 import type { GroupDetails, UpdateGroupInput } from "../../../types";
 
@@ -51,6 +52,7 @@ export const GET = handler<{ groupId: string }>(
 		const parentRole = parentId ? await getRole(userId, parentId) : null;
 		const canManage = isManager(role) || isManager(parentRole);
 		const canAdmin = isAdmin(role) || isAdmin(parentRole);
+		const offices = await getCurrentOffices(groupId);
 
 		return {
 			...toGroup(group, role),
@@ -84,6 +86,7 @@ export const GET = handler<{ groupId: string }>(
 					subgroupIds: group.subgroups
 						.filter((s) => s.memberships.some((sm) => sm.userId === m.userId))
 						.map((s) => s.id),
+					offices: offices.get(m.userId) ?? [],
 				}))
 				.sort(
 					(a, b) =>

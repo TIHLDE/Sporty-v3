@@ -91,6 +91,7 @@ model Person {
   pushTokens           PushToken[]
   notificationSettings NotificationSettings?
   matchStats           MatchStat[]
+  offices              OfficeHolder[]
 }
 
 model Group {
@@ -133,6 +134,8 @@ model Group {
   places          Place[]
   positions       GroupPosition[]
   matchStatTypes  MatchStatType[]
+  offices         GroupOffice[]
+  officePeriods   OfficePeriod[]
 }
 
 model Membership {
@@ -194,6 +197,45 @@ model GroupPosition {
 
   @@unique([groupId, name])
   @@index([groupId, sortOrder])
+}
+
+/// Et verv i laget, f.eks. Lagleder eller Botsjef. Admin i hovedgruppen lager listen på nettsiden,
+/// og den brukes i alle periodene i vervhistorikken. Appen viser vervene, men endrer dem ikke.
+model GroupOffice {
+  id      String         @id @default(cuid())
+  groupId String
+  name    String
+  group   Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  holders OfficeHolder[]
+
+  @@unique([groupId, name])
+}
+
+/// En periode i vervhistorikken, f.eks. «Sesongen 2026». Periodene kan overlappe.
+model OfficePeriod {
+  id       String         @id @default(cuid())
+  groupId  String
+  /// Valgfritt. Uten navn vises datoene.
+  name     String         @default("")
+  startsOn DateTime       @db.Date
+  endsOn   DateTime       @db.Date
+  group    Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  holders  OfficeHolder[]
+
+  @@index([groupId, startsOn])
+}
+
+/// Hvem som hadde et verv i en periode. Et verv kan ha flere personer, f.eks. to assistenttrenere.
+model OfficeHolder {
+  periodId String
+  officeId String
+  userId   String
+  period   OfficePeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  office   GroupOffice  @relation(fields: [officeId], references: [id], onDelete: Cascade)
+  user     Person       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([periodId, officeId, userId])
+  @@index([userId])
 }
 
 model Event {
