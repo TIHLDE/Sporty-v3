@@ -161,7 +161,7 @@ function Chat({ conversation }: { conversation: ConversationDetails }) {
 	}, [newestId, conversation.id, markRead]);
 
 	return (
-		<div className="flex h-[calc(100svh-8rem)] w-4xl flex-col gap-3">
+		<div className="flex h-[calc(100svh-8rem)] w-full max-w-4xl min-w-0 flex-col gap-3">
 			<div className="flex items-center gap-3">
 				<Link
 					to="/meldinger"

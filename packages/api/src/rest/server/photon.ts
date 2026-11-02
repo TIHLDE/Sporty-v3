@@ -316,23 +316,45 @@ export async function listPhotonFinesPage(
 /** Høyst så mange bøter hentes når alle trengs (én brukers bøter på profilen). */
 const MAX_FINES = 500;
 
-/** Alle bøtene (opptil MAX_FINES), nyeste først. Med `userId` bare den brukerens. */
+/** Alle bøtene (opptil `max`, standard MAX_FINES), nyeste først. Med `userId` bare den brukerens. */
 export async function listPhotonFines(
 	accessToken: string,
 	slug: string,
-	options: { userId?: string } = {},
+	options: { userId?: string; max?: number } = {},
 ) {
+	const { max = MAX_FINES, ...filter } = options;
 	const fines: PhotonFine[] = [];
 	let page: number | null = 0;
-	while (page !== null && fines.length < MAX_FINES) {
+	while (page !== null && fines.length < max) {
 		const result = await listPhotonFinesPage(accessToken, slug, {
-			...options,
+			...filter,
 			page,
 			pageSize: 100,
 		});
 		fines.push(...result.fines);
 		page = result.nextPage;
 	}
+	return fines;
+}
+
+/** Store lag har tusenvis av bøter; alle må hentes for å filtrere og summere per medlem. */
+const MAX_ALL_FINES = 5000;
+/** Bøtene endrer seg sjelden fra minutt til minutt, så hele listen gjenbrukes en kort stund. */
+const ALL_FINES_CACHE_MS = 60_000;
+const allFinesCache = new Map<string, { at: number; fines: PhotonFine[] }>();
+
+/**
+ * Alle bøtene i laget (opptil MAX_ALL_FINES), gjenbrukt i ett minutt. Alle medlemmer ser alle
+ * bøtene på tihlde.org, så listen deles mellom brukerne. Tømmes når en bot gis eller endres her.
+ */
+export async function listAllPhotonFines(accessToken: string, slug: string) {
+	const cached = allFinesCache.get(slug);
+	if (cached && Date.now() - cached.at < ALL_FINES_CACHE_MS)
+		return cached.fines;
+	const fines = await listPhotonFines(accessToken, slug, {
+		max: MAX_ALL_FINES,
+	});
+	allFinesCache.set(slug, { at: Date.now(), fines });
 	return fines;
 }
 
@@ -416,6 +438,7 @@ export function createPhotonFine(
 		image?: string;
 	},
 ) {
+	allFinesCache.delete(slug);
 	return photonRequest<{ id: string }>(
 		accessToken,
 		`groups/${encodeURIComponent(slug)}/fines`,
@@ -433,6 +456,7 @@ export function updatePhotonFineStatus(
 	fineId: string,
 	status: PhotonFineStatus,
 ) {
+	allFinesCache.delete(slug);
 	return photonRequest(
 		accessToken,
 		`groups/${encodeURIComponent(slug)}/fines/${encodeURIComponent(fineId)}`,

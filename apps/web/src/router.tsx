@@ -56,6 +56,11 @@ export const getRouter = () => {
 		context: { trpc, queryClient },
 		defaultPendingComponent: () => <Loader />,
 		defaultNotFoundComponent: () => <div>Not Found</div>,
+		// Myk overgang når du bytter side (bare innholdet animeres, se «page» i index.css).
+		// Ikke når bare søkeparametre endres, f.eks. når du velger gruppe på Bøter.
+		defaultViewTransition: {
+			types: ({ pathChanged }) => (pathChanged ? ["page"] : false),
+		},
 		Wrap: ({ children }) => (
 			<TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
 				{children}

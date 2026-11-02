@@ -1,1 +1,69 @@
 @import "@sporty/ui/globals.css";
+
+/*
+ * Sideoverganger (View Transitions, slått på i router.tsx). Bare innholdet i <main> animeres:
+ * den gamle siden toner raskt ut, og den nye glir litt opp og toner inn. Sidemenyen og
+ * fanemenyen står stille. Nettlesere uten støtte bytter side som før.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+	animation: none;
+}
+
+[data-page-transition] {
+	view-transition-name: page;
+}
+
+::view-transition-old(page) {
+	animation: page-out 120ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+::view-transition-new(page) {
+	animation: page-in 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes page-out {
+	to {
+		opacity: 0;
+	}
+}
+
+@keyframes page-in {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	::view-transition-old(page),
+	::view-transition-new(page) {
+		animation: none;
+	}
+}
+
+/* Toppfeltet og fanemenyen på mobil ligger over innholdet mens det animeres. */
+[data-app-chrome="header"] {
+	view-transition-name: app-header;
+}
+
+[data-app-chrome="nav"] {
+	view-transition-name: app-nav;
+}
+
+::view-transition-group(app-header),
+::view-transition-group(app-nav) {
+	z-index: 2;
+	animation: none;
+}
+
+/* Vis den levende versjonen med en gang, så markeringen i fanemenyen fortsetter å gli. */
+::view-transition-old(app-header),
+::view-transition-old(app-nav) {
+	display: none;
+}
+
+::view-transition-new(app-header),
+::view-transition-new(app-nav) {
+	animation: none;
+}

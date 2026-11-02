@@ -17,11 +17,25 @@ import {
 	DialogTitle,
 } from "@sporty/ui/components/dialog";
 import { Input } from "@sporty/ui/components/input";
+import {
+	Tabs,
+	TabsContent,
+	TabsList,
+	TabsTrigger,
+} from "@sporty/ui/components/tabs";
 import { cn } from "@sporty/ui/lib/utils";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ChevronRightIcon, LockIcon } from "lucide-react";
-import { type ReactNode, createContext, useContext, useState } from "react";
+import { animate, motion, useReducedMotion } from "motion/react";
+import {
+	type ReactNode,
+	createContext,
+	useContext,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 
 import { PageState } from "@/components/page-state";
 import { UserAvatar } from "@/components/user-avatar";
@@ -47,6 +61,55 @@ const percent = (rate: number | null) =>
 	rate === null ? "–" : `${Math.round(rate * 100)} %`;
 const monthLabel = (month: string) =>
 	monthFormat.format(new Date(`${month}-15T12:00:00`)).replace(".", "");
+/** Samme kurve som resten av appen: rask start, myk landing. */
+const EASE_OUT = [0.16, 1, 0.3, 1] as const;
+
+/**
+ * Et tall som teller opp til verdien (og videre når den endres, f.eks. ved bytte av periode).
+ * Med «Reduser bevegelse» vises verdien med en gang.
+ */
+function AnimatedNumber({
+	value,
+	suffix = "",
+}: {
+	value: number;
+	suffix?: string;
+}) {
+	const reduce = useReducedMotion();
+	const [shown, setShown] = useState(reduce ? value : 0);
+	const from = useRef(reduce ? value : 0);
+	useEffect(() => {
+		if (reduce) {
+			from.current = value;
+			return;
+		}
+		const controls = animate(from.current, value, {
+			duration: 0.8,
+			ease: EASE_OUT,
+			onUpdate: (latest) => {
+				from.current = latest;
+				setShown(latest);
+			},
+		});
+		return () => controls.stop();
+	}, [value, reduce]);
+	return (
+		<span className="tabular-nums">
+			{Math.round(reduce ? value : shown)}
+			{suffix}
+		</span>
+	);
+}
+
+/** En andel (0–1) som prosent som teller opp, eller «–» uten verdi. */
+function AnimatedPercent({ rate }: { rate: number | null }) {
+	return rate === null ? (
+		<>–</>
+	) : (
+		<AnimatedNumber value={Math.round(rate * 100)} suffix=" %" />
+	);
+}
+
 const duration = (hours: number | null) =>
 	hours === null
 		? "–"
@@ -88,63 +151,68 @@ export function StatsTab({ group }: { group: GroupDetails }) {
 								stats.isPlaceholderData && "opacity-60",
 							)}
 						>
-							<div className="flex flex-wrap items-center justify-between gap-3">
-								<div
-									className="flex gap-1 rounded-full bg-muted p-1"
-									role="tablist"
-								>
-									{views.map((v) => (
-										<button
-											key={v.value}
-											type="button"
-											role="tab"
-											aria-selected={v.value === shown}
-											onClick={() => setView(v.value)}
-											className={cn(
-												"rounded-full px-4 py-1.5 text-sm",
-												v.value === shown
-													? "bg-background font-semibold shadow-sm"
-													: "text-muted-foreground",
-											)}
-										>
-											{v.label}
-										</button>
-									))}
-								</div>
-								<div className="flex flex-wrap gap-2">
-									{data.periods.map((p) => (
-										<Button
-											key={p.id}
-											size="sm"
-											variant="outline"
-											className="rounded-full"
+							<Tabs
+								value={shown}
+								onValueChange={(value) => setView(value as StatsView)}
+								className="gap-4"
+							>
+								<div className="flex flex-wrap items-center justify-between gap-3">
+									<TabsList className="h-auto rounded-full p-1">
+										{views.map((v) => (
+											<TabsTrigger
+												key={v.value}
+												value={v.value}
+												className="rounded-full px-4 py-1.5"
+											>
+												{v.label}
+											</TabsTrigger>
+										))}
+									</TabsList>
+									<Tabs
+										value={data.period.id}
+										onValueChange={(value) => setPeriod(value as string)}
+									>
+										<TabsList
+											aria-label="Periode"
+											className="h-auto flex-wrap gap-1 rounded-full bg-transparent p-0"
 											style={
-												p.id === data.period.id
-													? {
-															backgroundColor: group.color,
-															borderColor: group.color,
-															color: "#ffffff",
-														}
-													: undefined
+												{ "--accent-color": group.color } as React.CSSProperties
 											}
-											onClick={() => setPeriod(p.id)}
 										>
-											{p.label}
-										</Button>
-									))}
+											{data.periods.map((p) => (
+												<TabsTrigger
+													key={p.id}
+													value={p.id}
+													className="rounded-full border border-input px-3.5 py-1.5 data-active:border-transparent data-active:bg-(--accent-color) data-active:text-white dark:data-active:bg-(--accent-color) dark:data-active:text-white"
+												>
+													{p.label}
+												</TabsTrigger>
+											))}
+										</TabsList>
+									</Tabs>
 								</div>
-							</div>
-							{data.team.events.total === 0 ? (
-								<p className="text-sm text-muted-foreground">
-									Ingen arrangementer som har vært i {data.period.label}.
-								</p>
-							) : shown === "meg" && data.me ? (
-								<MeView stats={data} me={data.me} />
-							) : shown === "admin" && data.admin ? (
-								<AdminView admin={data.admin} />
-							) : (
-								<TeamView team={data.team} period={data.period.label} />
-							)}
+								{data.team.events.total === 0 ? (
+									<p className="text-sm text-muted-foreground">
+										Ingen arrangementer som har vært i {data.period.label}.
+									</p>
+								) : (
+									<>
+										{data.me && (
+											<TabsContent value="meg">
+												<MeView stats={data} me={data.me} />
+											</TabsContent>
+										)}
+										<TabsContent value="laget">
+											<TeamView team={data.team} period={data.period.label} />
+										</TabsContent>
+										{data.admin && (
+											<TabsContent value="admin">
+												<AdminView admin={data.admin} />
+											</TabsContent>
+										)}
+									</>
+								)}
+							</Tabs>
 						</div>
 					);
 				}}
@@ -162,13 +230,16 @@ function MeView({ stats, me }: { stats: GroupStats; me: MyStats }) {
 		0.01,
 	);
 	const favorite = me.favoriteWeekday;
+	const reduce = useReducedMotion();
 
 	return (
 		<div className="grid gap-3 md:grid-cols-2">
 			<Card>
 				<p className="text-sm font-medium text-muted-foreground">Oppmøte</p>
 				<p className="flex items-baseline gap-2.5">
-					<span className="text-5xl font-extrabold">{percent(rate)}</span>
+					<span className="text-5xl font-extrabold">
+						<AnimatedPercent rate={rate} />
+					</span>
 					<span className="text-sm">
 						{me.attendance.count} av {me.attendance.total} arrangementer
 					</span>
@@ -229,13 +300,17 @@ function MeView({ stats, me }: { stats: GroupStats; me: MyStats }) {
 									key={m.month}
 									className="flex h-full flex-1 flex-col items-center justify-end gap-1"
 								>
-									<span className="text-xs">{percent(value)}</span>
-									<div
+									<span className="text-xs">
+										<AnimatedPercent rate={value} />
+									</span>
+									<motion.div
 										className="w-full max-w-12 rounded-t"
-										style={{
+										style={{ backgroundColor: accent }}
+										initial={reduce ? false : { height: "0%" }}
+										animate={{
 											height: `${Math.max((value / highest) * 75, 2)}%`,
-											backgroundColor: accent,
 										}}
+										transition={{ duration: 0.7, ease: EASE_OUT }}
 									/>
 								</div>
 							);
@@ -270,7 +345,7 @@ function TeamView({ team, period }: { team: TeamStats; period: string }) {
 			<div className="grid grid-cols-2 gap-3">
 				<Tile
 					label="Snitt oppmøte"
-					text={percent(team.attendanceRate)}
+					rate={team.attendanceRate}
 					detail={
 						change === null
 							? undefined
@@ -305,7 +380,9 @@ function TeamView({ team, period }: { team: TeamStats; period: string }) {
 							] as const
 						).map(([label, value]) => (
 							<div key={label}>
-								<p className="text-2xl font-extrabold">{value}</p>
+								<p className="text-2xl font-extrabold">
+									<AnimatedNumber value={value} />
+								</p>
 								<p className="text-xs text-muted-foreground">{label}</p>
 							</div>
 						))}
@@ -365,7 +442,7 @@ function AdminView({ admin }: { admin: AdminStats }) {
 						<Tile
 							inner
 							label="Ikke svart"
-							text={percent(admin.unansweredRate)}
+							rate={admin.unansweredRate}
 							detail="av alle som var ventet"
 						/>
 						<Tile
@@ -391,11 +468,7 @@ function AdminView({ admin }: { admin: AdminStats }) {
 				<Card>
 					<p className="font-semibold">Betalinger</p>
 					<div className="grid grid-cols-2 gap-3">
-						<Tile
-							inner
-							label="Betalt innen frist"
-							text={percent(payments.onTimeRate)}
-						/>
+						<Tile inner label="Betalt innen frist" rate={payments.onTimeRate} />
 						<Tile
 							inner
 							label="Snitt til godkjent"
@@ -646,6 +719,7 @@ function Tile({
 	value,
 	total,
 	text,
+	rate,
 	detail,
 	inner,
 }: {
@@ -653,6 +727,8 @@ function Tile({
 	value?: number;
 	total?: number;
 	text?: string;
+	/** En andel (0–1) som vises som prosent som teller opp. */
+	rate?: number | null;
 	detail?: string;
 	inner?: boolean;
 }) {
@@ -665,7 +741,12 @@ function Tile({
 		>
 			<span className="text-xs text-muted-foreground">{label}</span>
 			<span className="text-2xl font-bold capitalize">
-				{text ?? value}
+				{text ??
+					(rate !== undefined ? (
+						<AnimatedPercent rate={rate} />
+					) : value !== undefined ? (
+						<AnimatedNumber value={value} />
+					) : null)}
 				{total !== undefined && (
 					<span className="text-sm font-medium text-muted-foreground">
 						{" "}
@@ -682,6 +763,7 @@ function Tile({
 
 function Progress({ value, thin }: { value: number; thin?: boolean }) {
 	const accent = useAccent();
+	const reduce = useReducedMotion();
 	return (
 		<div
 			role="img"
@@ -691,12 +773,12 @@ function Progress({ value, thin }: { value: number; thin?: boolean }) {
 				thin ? "h-1.5" : "h-2",
 			)}
 		>
-			<div
+			<motion.div
 				className="h-full rounded-full"
-				style={{
-					width: `${Math.min(Math.max(value, 0), 1) * 100}%`,
-					backgroundColor: accent,
-				}}
+				style={{ backgroundColor: accent }}
+				initial={reduce ? false : { width: "0%" }}
+				animate={{ width: `${Math.min(Math.max(value, 0), 1) * 100}%` }}
+				transition={{ duration: 0.8, ease: EASE_OUT }}
 			/>
 		</div>
 	);

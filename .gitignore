@@ -59,3 +59,9 @@ temp
 
 # Opplastede filer fra API-et (bilder, video, vedlegg)
 apps/web/storage
+
+# Lokale verktøy for AI-agenter (skills, innstillinger). Trengs ikke for å bygge eller kjøre appen.
+.claude/
+.agents/
+skills-lock.json
+PRODUCT.md
