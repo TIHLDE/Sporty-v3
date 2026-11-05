@@ -432,6 +432,19 @@ export interface Message {
 	replyTo: MessageQuote | null;
 	/** Én per emoji, i rekkefølgen de først ble brukt. */
 	reactions: MessageReaction[];
+	/** GIF-en meldingen består av. Da er `body` bare «GIF», så forhåndsvisninger gir mening. */
+	gif: MessageGif | null;
+}
+
+export interface MessageGif {
+	slug: string;
+	url: string;
+	width: number;
+	height: number;
+}
+
+export interface FavoriteGif extends MessageGif {
+	title: string;
 }
 
 export interface MessageReaction {

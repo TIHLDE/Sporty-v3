@@ -168,5 +168,18 @@ export function toMessage(
 				}
 			: null,
 		reactions: message.deletedAt ? [] : [...reactions.values()],
+		gif:
+			message.gifSlug &&
+			message.gifUrl &&
+			message.gifWidth &&
+			message.gifHeight &&
+			!message.deletedAt
+				? {
+						slug: message.gifSlug,
+						url: message.gifUrl,
+						width: message.gifWidth,
+						height: message.gifHeight,
+					}
+				: null,
 	};
 }
