@@ -35,7 +35,7 @@ Kopier denne blokken til toppen av listen under, og ta bare med kategoriene som 
 - **Favicon**: nettsiden viser Sporty-skjoldet fra appen i nettleserfanen
 - **Rapportering og blokkering**: meldinger kan rapporteres til sub-/admin (Index for direktemeldinger), som kan slette meldingen eller avvise rapporten under Rapporter. Blokkerte personers meldinger og varsler skjules, og dere kan ikke sende direktemeldinger til hverandre
 - **Rapportering av kommentarer**: kommentarer på kunngjøringer og avstemninger kan rapporteres, og blokkering skjuler også kommentarer
-- **Brukervilkår**: alle må godta vilkårene for å bruke Sporty, og de kan leses under Profil sammen med personvernerklæringen til TIHLDE
+- **Brukervilkår**: alle må godta vilkårene for å bruke Sporty, og de kan leses under Profil sammen med personvernerklæringen til TIHLDE og en lenke til kontoen hos TIHLDE
 - **GIF-er i meldinger**: API-et tar imot GIF-meldinger fra Klipy og lagrer hver persons favoritter (`/gifs/favorites`). Nettsiden har emoji-meny med Emoji, GIF og Favoritter i skrivefeltet, og GIF-er vises uten boble. Skrivefeltet er en avrundet kapsel som i appen, og send-knappen vises først når du har skrevet noe
 
 ## 2026-11-02

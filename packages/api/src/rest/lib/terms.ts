@@ -8,6 +8,9 @@ export const TERMS_VERSION = 1;
 /** Personvernerklæringen ligger hos TIHLDE. */
 export const PRIVACY_URL = "https://tihlde.org/personvern";
 
+/** Kontoen eies av TIHLDE, så Sporty har ingen egen kontosletting. */
+export const TIHLDE_ACCOUNT_URL = "https://tihlde.org/profil/me/innstillinger";
+
 export const TERMS_SECTIONS = [
 	{
 		title: "Hva Sporty er",

@@ -1,6 +1,6 @@
 import { formatDateLong } from "@sporty/api/rest/lib/dates";
 import { formatFineCount, isUnpaid } from "@sporty/api/rest/lib/fines";
-import { PRIVACY_URL } from "@sporty/api/rest/lib/terms";
+import { PRIVACY_URL, TIHLDE_ACCOUNT_URL } from "@sporty/api/rest/lib/terms";
 import type { NotificationSettings, Role } from "@sporty/api/rest/types";
 import { Badge } from "@sporty/ui/components/badge";
 import { Button } from "@sporty/ui/components/button";
@@ -141,6 +141,14 @@ function ProfileComponent() {
 					className="block py-1 text-sm underline underline-offset-4"
 				>
 					Personvernerklæring
+				</a>
+				<a
+					href={TIHLDE_ACCOUNT_URL}
+					target="_blank"
+					rel="noreferrer"
+					className="block py-1 text-sm underline underline-offset-4"
+				>
+					Kontoen din hos TIHLDE
 				</a>
 			</Section>
 			<SignOut />
