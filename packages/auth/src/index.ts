@@ -41,6 +41,8 @@ export function createAuth(env: AuthConfig, database: Database) {
             // Photon registrerer klienten med client_secret_basic, så hemmeligheten
             // må sendes i Authorization-headeren, ikke i skjemaet (invalid_client ellers).
             authentication: "basic",
+            // Nødvendig for å hindre "This client can not log out"-error
+            disableProviderLogout: true,
             tokenUrlParams: PHOTON_TOKEN_PARAMS,
             refreshTokenParams: PHOTON_TOKEN_PARAMS,
           },
