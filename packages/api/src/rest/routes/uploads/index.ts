@@ -46,6 +46,12 @@ export const POST = handler(async (request): Promise<UploadedFile> => {
 			uploadedById: userId,
 		},
 	});
-	await saveFile(upload.id, data);
+	try {
+		await saveFile(upload.id, data);
+	} catch (error) {
+		// Ikke la en rad uten fil bli liggende.
+		await prisma.upload.delete({ where: { id: upload.id } }).catch(() => {});
+		throw error;
+	}
 	return toUpload(upload);
 });
