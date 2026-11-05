@@ -82,7 +82,11 @@ export async function fetchGifs(
 }
 
 /** Forteller Klipy at en GIF ble sendt. Tom `query` betyr at den kom fra trending. */
-export function reportGifShare(slug: string, customerId: string, query: string) {
+export function reportGifShare(
+	slug: string,
+	customerId: string,
+	query: string,
+) {
 	if (!APP_KEY) return;
 	fetch(`${baseUrl()}/share/${encodeURIComponent(slug)}`, {
 		method: "POST",

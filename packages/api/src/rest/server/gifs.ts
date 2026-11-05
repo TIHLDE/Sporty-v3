@@ -13,27 +13,37 @@ const isSide = (value: unknown): value is number =>
 	(value as number) > 0 &&
 	(value as number) <= MAX_SIDE;
 
-/** Bare lenker til Klipy godtas, så en melding ikke kan laste bilder fra hvor som helst. */
-function isKlipyUrl(value: unknown): value is string {
-	if (typeof value !== "string") return false;
+/**
+ * Normalisert lenke hvis den går til Klipy, ellers null. Det er den normaliserte lenken som skal
+ * lagres: iOS tolker f.eks. omvendt skråstrek annerledes enn `URL`, og kunne ellers ha lastet
+ * bildet fra en annen vert enn den som ble sjekket her.
+ */
+function klipyUrl(value: unknown): string | null {
+	if (typeof value !== "string") return null;
+	let url: URL;
 	try {
-		const url = new URL(value);
-		return (
-			url.protocol === "https:" && /^static\d*\.klipy\.com$/.test(url.hostname)
-		);
+		url = new URL(value);
 	} catch {
-		return false;
+		return null;
 	}
+	const isKlipy =
+		url.protocol === "https:" &&
+		!url.username &&
+		!url.password &&
+		!url.port &&
+		/^static\d*\.klipy\.com$/.test(url.hostname);
+	return isKlipy ? url.href : null;
 }
 
 /** Sjekker en GIF fra klienten. */
 export function parseGif(input: Partial<MessageGif> | null): MessageGif {
-	const { slug, url, width, height } = input ?? {};
+	const { slug, width, height } = input ?? {};
+	const url = klipyUrl(input?.url);
 	if (
 		typeof slug !== "string" ||
 		!slug ||
 		slug.length > 200 ||
-		!isKlipyUrl(url) ||
+		!url ||
 		!isSide(width) ||
 		!isSide(height)
 	)

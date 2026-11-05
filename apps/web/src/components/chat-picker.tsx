@@ -43,7 +43,9 @@ export function useFavoriteGifs() {
 		onError: (error: { message: string }) =>
 			toast.error(`Favoritten ble ikke lagret: ${error.message}`),
 	};
-	const add = useMutation(trpc.messages.addFavoriteGif.mutationOptions(options));
+	const add = useMutation(
+		trpc.messages.addFavoriteGif.mutationOptions(options),
+	);
 	const remove = useMutation(
 		trpc.messages.removeFavoriteGif.mutationOptions(options),
 	);

@@ -11,8 +11,6 @@ import * as rMessage from "./routes/conversations/[conversationId]/messages/[mes
 import * as rMessageReactions from "./routes/conversations/[conversationId]/messages/[messageId]/reactions";
 import * as r8 from "./routes/conversations/[conversationId]/read";
 import * as r26 from "./routes/conversations/direct";
-import * as rGifFavorite from "./routes/gifs/favorites/[slug]";
-import * as rGifFavorites from "./routes/gifs/favorites/index";
 import * as r42 from "./routes/conversations/index";
 import * as r9 from "./routes/events/[eventId]/attendance";
 import * as r10 from "./routes/events/[eventId]/collective-fine";
@@ -27,6 +25,8 @@ import * as rFineImage from "./routes/fines/[fineId]/image";
 import * as r44 from "./routes/fines/index";
 import * as r27 from "./routes/fines/mine";
 import * as rSnitches from "./routes/fines/snitches";
+import * as rGifFavorite from "./routes/gifs/favorites/[slug]";
+import * as rGifFavorites from "./routes/gifs/favorites/index";
 import * as r12 from "./routes/groups/[groupId]/announcements";
 import * as r13 from "./routes/groups/[groupId]/events";
 import * as r3 from "./routes/groups/[groupId]/export/attendance";

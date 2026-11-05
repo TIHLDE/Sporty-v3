@@ -26,7 +26,8 @@ export const POST = handler(async (request): Promise<FavoriteGif> => {
 	const userId = await getUserId(request);
 	const input = await readJson<Partial<FavoriteGif>>(request);
 	const gif = parseGif(input);
-	const title = typeof input.title === "string" ? input.title.slice(0, 200) : "";
+	const title =
+		typeof input.title === "string" ? input.title.slice(0, 200) : "";
 	const row = await prisma.favoriteGif.upsert({
 		where: { userId_slug: { userId, slug: gif.slug } },
 		create: { userId, title, ...gif },
