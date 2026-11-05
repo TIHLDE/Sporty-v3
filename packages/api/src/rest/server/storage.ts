@@ -1,5 +1,5 @@
-// Lagring av opplastede filer på disk. Holder for lokal utvikling; i produksjon byttes dette
-// ut med objektlagring (f.eks. S3), mens Upload-tabellen og API-et kan forbli det samme.
+// Lagring av opplastede filer på serverens disk, også i produksjon. Mappen må ligge på et varig
+// volum, ellers forsvinner filene ved ny image (se infra/docker/docker-compose.yml).
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";

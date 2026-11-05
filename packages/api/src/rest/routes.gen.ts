@@ -4,11 +4,14 @@
 import * as r6 from "./routes/announcements/[announcementId]/comments";
 import * as r33 from "./routes/announcements/[announcementId]/index";
 import * as r40 from "./routes/announcements/index";
+import * as rBlock from "./routes/blocks/[userId]";
+import * as rBlocks from "./routes/blocks/index";
 import * as r41 from "./routes/contacts";
 import * as r34 from "./routes/conversations/[conversationId]/index";
 import * as r7 from "./routes/conversations/[conversationId]/messages";
 import * as rMessage from "./routes/conversations/[conversationId]/messages/[messageId]/index";
 import * as rMessageReactions from "./routes/conversations/[conversationId]/messages/[messageId]/reactions";
+import * as rMessageReport from "./routes/conversations/[conversationId]/messages/[messageId]/report";
 import * as r8 from "./routes/conversations/[conversationId]/read";
 import * as r26 from "./routes/conversations/direct";
 import * as r42 from "./routes/conversations/index";
@@ -26,6 +29,8 @@ import * as rFineImage from "./routes/fines/[fineId]/image";
 import * as r44 from "./routes/fines/index";
 import * as r27 from "./routes/fines/mine";
 import * as rSnitches from "./routes/fines/snitches";
+import * as rGifFavorite from "./routes/gifs/favorites/[slug]";
+import * as rGifFavorites from "./routes/gifs/favorites/index";
 import * as r12 from "./routes/groups/[groupId]/announcements";
 import * as r13 from "./routes/groups/[groupId]/events";
 import * as r3 from "./routes/groups/[groupId]/export/attendance";
@@ -58,6 +63,7 @@ import * as r28 from "./routes/groups/managed";
 import * as r46 from "./routes/health";
 import * as r47 from "./routes/me/index";
 import * as r29 from "./routes/me/settings";
+import * as rMeTerms from "./routes/me/terms";
 import * as r22 from "./routes/notifications/[notificationId]/read";
 import * as r48 from "./routes/notifications/index";
 import * as r30 from "./routes/notifications/read-all";
@@ -70,6 +76,8 @@ import * as r38 from "./routes/polls/[pollId]/index";
 import * as r25 from "./routes/polls/[pollId]/vote";
 import * as r50 from "./routes/push-tokens/index";
 import * as r32 from "./routes/push-tokens/test";
+import * as rReport from "./routes/reports/[reportId]";
+import * as rReports from "./routes/reports/index";
 import * as r51 from "./routes/unread";
 import * as r39 from "./routes/uploads/[uploadId]";
 import * as r52 from "./routes/uploads/index";
@@ -102,6 +110,10 @@ export const routes = [
 		module: rMatchStatType,
 	},
 	{ pattern: "/events/:eventId/match-facts/:statId", module: rMatchStat },
+	{
+		pattern: "/conversations/:conversationId/messages/:messageId/report",
+		module: rMessageReport,
+	},
 	{
 		pattern: "/conversations/:conversationId/messages/:messageId/reactions",
 		module: rMessageReactions,
@@ -142,6 +154,13 @@ export const routes = [
 	{ pattern: "/polls/:pollId/comments", module: r24 },
 	{ pattern: "/polls/:pollId/vote", module: r25 },
 	{ pattern: "/conversations/direct", module: r26 },
+	{ pattern: "/me/terms", module: rMeTerms },
+	{ pattern: "/reports/:reportId", module: rReport },
+	{ pattern: "/reports", module: rReports },
+	{ pattern: "/blocks/:userId", module: rBlock },
+	{ pattern: "/blocks", module: rBlocks },
+	{ pattern: "/gifs/favorites/:slug", module: rGifFavorite },
+	{ pattern: "/gifs/favorites", module: rGifFavorites },
 	{ pattern: "/fines/mine", module: r27 },
 	{ pattern: "/fines/snitches", module: rSnitches },
 	{ pattern: "/groups/managed", module: r28 },

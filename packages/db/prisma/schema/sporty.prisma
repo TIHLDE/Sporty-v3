@@ -49,6 +49,20 @@ enum NotificationType {
   announcement
   poll
   payment
+  report
+}
+
+enum ReportReason {
+  harassment
+  inappropriate
+  spam
+  other
+}
+
+enum ReportStatus {
+  open
+  dismissed
+  removed
 }
 
 /// Et medlem i Sporty. Lages når noen logger inn (i appen eller på nettsiden), eller når
@@ -88,6 +102,15 @@ model Person {
   conversations        ConversationMember[]
   messages             Message[]
   messageReactions     MessageReaction[]
+  favoriteGifs         FavoriteGif[]
+  blocksGiven          UserBlock[]           @relation("Blocker")
+  blocksReceived       UserBlock[]           @relation("Blocked")
+  reportsMade          MessageReport[]       @relation("Reporter")
+  reportsResolved      MessageReport[]       @relation("Resolver")
+  reportsAgainst       MessageReport[]       @relation("ReportedUser")
+  /// Når brukeren godtok vilkårene, og hvilken versjon. Se lib/terms.ts.
+  termsAcceptedAt      DateTime?
+  termsVersion         Int?
   pushTokens           PushToken[]
   notificationSettings NotificationSettings?
   matchStats           MatchStat[]
@@ -136,6 +159,7 @@ model Group {
   matchStatTypes  MatchStatType[]
   offices         GroupOffice[]
   officePeriods   OfficePeriod[]
+  messageReports  MessageReport[]
 }
 
 model Membership {
@@ -322,13 +346,14 @@ model Announcement {
 }
 
 model AnnouncementComment {
-  id             String       @id @default(cuid())
+  id             String          @id @default(cuid())
   announcementId String
   authorId       String
   body           String
-  createdAt      DateTime     @default(now())
-  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
-  author         Person       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt      DateTime        @default(now())
+  announcement   Announcement    @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  author         Person          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  reports        MessageReport[]
 
   @@index([announcementId, createdAt])
 }
@@ -372,13 +397,14 @@ model Poll {
 }
 
 model PollComment {
-  id        String   @id @default(cuid())
+  id        String          @id @default(cuid())
   pollId    String
   authorId  String
   body      String
-  createdAt DateTime @default(now())
-  poll      Poll     @relation(fields: [pollId], references: [id], onDelete: Cascade)
-  author    Person   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt DateTime        @default(now())
+  poll      Poll            @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  author    Person          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  reports   MessageReport[]
 
   @@index([pollId, createdAt])
 }
@@ -551,11 +577,17 @@ model Message {
   deletedAt      DateTime?
   /// Sist teksten ble redigert. Null hvis den aldri er endret.
   editedAt       DateTime?
+  /// GIF fra Klipy. Bare lenken lagres, Klipy krever at bildet lastes direkte derfra.
+  gifSlug        String?
+  gifUrl         String?
+  gifWidth       Int?
+  gifHeight      Int?
   conversation   Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender         Person            @relation(fields: [senderId], references: [id])
   replyTo        Message?          @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
   replies        Message[]         @relation("MessageReplies")
   reactions      MessageReaction[]
+  reports        MessageReport[]
 
   @@index([conversationId, sentAt])
 }
@@ -570,6 +602,65 @@ model MessageReaction {
   user      Person   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([messageId, userId, emoji])
+}
+
+/// `blocker` ser ikke meldingene til `blocked`, og de to kan ikke sende direktemeldinger til hverandre.
+model UserBlock {
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+  blocker   Person   @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   Person   @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@id([blockerId, blockedId])
+  @@index([blockedId])
+}
+
+/// En rapportert melding eller kommentar. Akkurat ett av `messageId`, `announcementCommentId` og
+/// `pollCommentId` er satt. Teksten kopieres hit, så den kan vurderes selv om innholdet slettes.
+model MessageReport {
+  id                    String               @id @default(cuid())
+  messageId             String?
+  announcementCommentId String?
+  pollCommentId         String?
+  reporterId            String
+  /// Den som skrev innholdet. Kan ikke behandle rapporten selv.
+  senderId              String
+  /// Gruppen samtalen hører til. Null for direktemeldinger, som behandles av Index.
+  groupId               String?
+  reason                ReportReason
+  status                ReportStatus         @default(open)
+  body                  String
+  gifUrl                String?
+  createdAt             DateTime             @default(now())
+  resolvedAt            DateTime?
+  resolvedById          String?
+  message               Message?             @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  announcementComment   AnnouncementComment? @relation(fields: [announcementCommentId], references: [id], onDelete: SetNull)
+  pollComment           PollComment?         @relation(fields: [pollCommentId], references: [id], onDelete: SetNull)
+  reporter              Person               @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  sender                Person               @relation("ReportedUser", fields: [senderId], references: [id], onDelete: Cascade)
+  group                 Group?               @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  resolvedBy            Person?              @relation("Resolver", fields: [resolvedById], references: [id])
+
+  @@unique([messageId, reporterId])
+  @@unique([announcementCommentId, reporterId])
+  @@unique([pollCommentId, reporterId])
+  @@index([status, groupId])
+}
+
+/// En GIF brukeren har lagret i favorittene sine. Bare lenken lagres, ikke selve bildet.
+model FavoriteGif {
+  userId    String
+  slug      String
+  title     String
+  url       String
+  width     Int
+  height    Int
+  createdAt DateTime @default(now())
+  user      Person   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, slug])
 }
 
 /// Expo push-token for en enhet. Én enhet hører til én bruker om gangen (siste som logget inn).

@@ -6,6 +6,12 @@ import { restCall } from "./rest-call";
 
 const id = z.string().min(1);
 const fineStatus = z.enum(["pending", "approved", "paid", "rejected"]);
+const gif = z.object({
+	slug: z.string().min(1),
+	url: z.string().url(),
+	width: z.number().int().positive(),
+	height: z.number().int().positive(),
+});
 
 /** Bygger ?a=b, uten tomme verdier. */
 function query(params: Record<string, string | number | undefined>) {
@@ -801,6 +807,7 @@ const messagesRouter = router({
 				conversationId: id,
 				body: z.string(),
 				replyToId: id.nullish(),
+				gif: gif.nullish(),
 			}),
 		)
 		.mutation(({ ctx, input }) =>
@@ -808,8 +815,78 @@ const messagesRouter = router({
 				ctx,
 				"POST",
 				`/conversations/${enc(input.conversationId)}/messages`,
-				{ body: input.body, replyToId: input.replyToId ?? null },
+				{
+					body: input.body,
+					replyToId: input.replyToId ?? null,
+					gif: input.gif ?? null,
+				},
 			),
+		),
+	/** Rapporter en melding til sub-/admin, eller til Index for direktemeldinger. */
+	report: protectedProcedure
+		.input(
+			z.object({
+				conversationId: id,
+				messageId: id,
+				reason: z.enum(["harassment", "inappropriate", "spam", "other"]),
+			}),
+		)
+		.mutation(({ ctx, input }) =>
+			restCall(
+				ctx,
+				"POST",
+				`/conversations/${enc(input.conversationId)}/messages/${enc(input.messageId)}/report`,
+				{ reason: input.reason },
+			),
+		),
+	/** Rapporter en kommentar på en kunngjøring eller avstemning. */
+	reportComment: protectedProcedure
+		.input(
+			z.object({
+				type: z.enum(["announcement", "poll"]),
+				commentId: id,
+				reason: z.enum(["harassment", "inappropriate", "spam", "other"]),
+			}),
+		)
+		.mutation(({ ctx, input }) => restCall(ctx, "POST", "/reports", input)),
+	/** Åpne rapporter brukeren kan behandle. */
+	reports: protectedProcedure.query(({ ctx }) =>
+		restCall<Dto.MessageReport[]>(ctx, "GET", "/reports"),
+	),
+	resolveReport: protectedProcedure
+		.input(z.object({ reportId: id, action: z.enum(["remove", "dismiss"]) }))
+		.mutation(({ ctx, input }) =>
+			restCall(ctx, "PATCH", `/reports/${enc(input.reportId)}`, {
+				action: input.action,
+			}),
+		),
+	/** Personene brukeren har blokkert. */
+	blocks: protectedProcedure.query(({ ctx }) =>
+		restCall<Dto.User[]>(ctx, "GET", "/blocks"),
+	),
+	block: protectedProcedure
+		.input(z.object({ userId: id }))
+		.mutation(({ ctx, input }) =>
+			restCall(ctx, "POST", "/blocks", { userId: input.userId }),
+		),
+	unblock: protectedProcedure
+		.input(z.object({ userId: id }))
+		.mutation(({ ctx, input }) =>
+			restCall(ctx, "DELETE", `/blocks/${enc(input.userId)}`),
+		),
+	/** GIF-ene brukeren har lagret, sist lagret først. */
+	favoriteGifs: protectedProcedure.query(({ ctx }) =>
+		restCall<Dto.FavoriteGif[]>(ctx, "GET", "/gifs/favorites"),
+	),
+	addFavoriteGif: protectedProcedure
+		.input(gif.extend({ title: z.string() }))
+		.mutation(({ ctx, input }) =>
+			restCall<Dto.FavoriteGif>(ctx, "POST", "/gifs/favorites", input),
+		),
+	removeFavoriteGif: protectedProcedure
+		.input(z.object({ slug: z.string().min(1) }))
+		.mutation(({ ctx, input }) =>
+			restCall(ctx, "DELETE", `/gifs/favorites/${enc(input.slug)}`),
 		),
 	/** Reager med en emoji, eller fjern reaksjonen hvis man allerede har den. */
 	react: protectedProcedure
@@ -865,6 +942,9 @@ const messagesRouter = router({
 export const appRouter = router({
 	me: protectedProcedure.query(({ ctx }) =>
 		restCall<Dto.Me>(ctx, "GET", "/me"),
+	),
+	acceptTerms: protectedProcedure.mutation(({ ctx }) =>
+		restCall(ctx, "POST", "/me/terms"),
 	),
 	settings: settingsRouter,
 	notifications: notificationsRouter,

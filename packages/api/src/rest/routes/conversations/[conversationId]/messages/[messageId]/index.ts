@@ -41,6 +41,7 @@ async function requireChangeableMessage(
 export const PATCH = handler<Params>(
 	async (request, params): Promise<Message> => {
 		const { message, userId } = await requireChangeableMessage(request, params);
+		if (message.gifUrl) throw new HttpError(400, "GIF-er kan ikke redigeres");
 		const { body } = await readJson<{ body: string }>(request);
 		const text = body?.trim();
 		if (!text) throw new HttpError(400, "Meldingen er tom");
@@ -66,7 +67,14 @@ export const DELETE = handler<Params>(
 		const { message, userId } = await requireChangeableMessage(request, params);
 		const deleted = await prisma.message.update({
 			where: { id: message.id },
-			data: { body: "", deletedAt: new Date() },
+			data: {
+				body: "",
+				deletedAt: new Date(),
+				gifSlug: null,
+				gifUrl: null,
+				gifWidth: null,
+				gifHeight: null,
+			},
 			include: messageInclude,
 		});
 		return toMessage(deleted, userId);
