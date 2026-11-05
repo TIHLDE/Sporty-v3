@@ -167,3 +167,13 @@
 		text-underline-offset: 3px;
 	}
 }
+
+/*
+ * Under faneskifte holdes scrollen i ro mens panelhøyden glider. Uten dette plukker
+ * nettleserens scroll-anchoring nye ankernoder etter som panelene fjernes og dytter
+ * scrollen rundt på egen hånd, så byttet ser rykkete ut.
+ */
+[data-slot="tabs"][data-scroll-hold],
+[data-slot="tabs"][data-scroll-hold] * {
+	overflow-anchor: none;
+}

@@ -172,10 +172,10 @@ function GroupView({ group }: { group: GroupDetails }) {
 				</div>
 			</div>
 
-			<Tabs defaultValue="arrangementer">
+			<Tabs defaultValue="arrangementer" preserveScroll>
 				<TabsList
 					variant="line"
-					className="h-auto max-w-full justify-start gap-4 overflow-x-auto border-b p-0 pb-[5px] [&>[data-slot=tabs-trigger]]:flex-none [&>[data-slot=tabs-trigger]]:px-0"
+					className="sticky top-14 z-10 h-auto justify-start gap-4 overflow-x-auto border-b bg-background/85 p-0 pt-1.5 pb-[5px] shadow-[0_4px_16px_-12px_rgb(0_0_0/0.35)] backdrop-blur-md md:top-0 md:mx-0 md:px-0 -mx-4 px-4 [&>[data-slot=tabs-trigger]]:flex-none [&>[data-slot=tabs-trigger]]:px-0"
 				>
 					<TabsTrigger value="arrangementer">Arrangementer</TabsTrigger>
 					<TabsTrigger value="kunngjoringer">Kunngjøringer</TabsTrigger>

@@ -5,16 +5,54 @@
 import { Tabs as TabsPrimitive } from "@animate-ui/react/primitives/base-ui/tabs";
 import { cn } from "@sporty/ui/lib/utils";
 import { cva, type VariantProps } from "class-variance-authority";
+import { useRef } from "react";
 
 function Tabs({
 	className,
 	orientation = "horizontal",
+	preserveScroll = false,
+	value,
+	defaultValue,
+	onValueChange,
+	ref,
 	...props
-}: TabsPrimitive.Root.Props) {
+}: TabsPrimitive.Root.Props & {
+	/** Husker scrollen per fane, så siden ikke rykker opp når du bytter mellom høye faner. */
+	preserveScroll?: boolean;
+}) {
+	const rootRef = useRef<HTMLDivElement | null>(null);
+	// Hvilken fane som er åpen nå, så vi vet hvor vi ruller fra når den byttes ut.
+	const activeRef = useRef(value ?? defaultValue);
+	const positions = useRef(new Map<unknown, number>());
+
+	const handleValueChange = (
+		next: unknown,
+		details: TabsPrimitive.Root.ChangeEventDetails,
+	) => {
+		const previous = activeRef.current;
+		activeRef.current = next;
+		if (preserveScroll && typeof window !== "undefined" && previous !== next) {
+			positions.current.set(previous, window.scrollY);
+			// Lagret posisjon = følg glidningen tilbake dit. Første besøk i fanen = ingen å
+			// gå til, da skal scrollen bare få være i ro mens høyden glider og innholdet
+			// popper inn (jakt etter en bevegelig målposisjon ser rykkete ut).
+			holdViewport(rootRef.current, positions.current.get(next) ?? null);
+		}
+		onValueChange?.(next, details);
+	};
+
 	return (
 		<TabsPrimitive.Root
+			ref={(node) => {
+				rootRef.current = node;
+				if (typeof ref === "function") ref(node);
+				else if (ref) ref.current = node;
+			}}
 			data-slot="tabs"
 			data-orientation={orientation}
+			value={value}
+			defaultValue={defaultValue}
+			onValueChange={handleValueChange}
 			className={cn(
 				"group/tabs flex gap-2 data-horizontal:flex-col",
 				className,
@@ -22,6 +60,52 @@ function Tabs({
 			{...props}
 		/>
 	);
+}
+
+/**
+ * Holder vinduet på ett sted mens panelhøyden glider (150 ms ut + 450 ms høyde) ved faneskifte.
+ * Med en lagret posisjon følges glidningen dit, så du havner akkurat der du var da du forlot
+ * fanen. Første gang en fane åpnes (top === null) er det ingen posisjon å gå til — da er det
+ * bare scroll-anchoring som holdes i sjakk (se data-scroll-hold i globals.css), og innholdet
+ * som popper inn når dataene kommer, får vokse uten at scrollen jages rundt.
+ */
+let holdToken: symbol | null = null;
+
+function holdViewport(
+	root: HTMLElement | null,
+	top: number | null,
+	duration = 600,
+) {
+	const token = Symbol();
+	holdToken = token; // avbryter et hold som evt. pågår fra forrige bytte
+	root?.setAttribute("data-scroll-hold", "");
+	const stop = () => {
+		if (holdToken !== token) return;
+		holdToken = null;
+		root?.removeAttribute("data-scroll-hold");
+	};
+	// Gi slipp så snart brukeren ruller selv.
+	window.addEventListener("wheel", stop, { once: true, passive: true });
+	window.addEventListener("touchmove", stop, { once: true, passive: true });
+	const start = performance.now();
+	function frame() {
+		if (holdToken !== token) return;
+		if (top !== null) {
+			const max = document.documentElement.scrollHeight - window.innerHeight;
+			const target = Math.min(Math.max(top, 0), Math.max(max, 0));
+			if (Math.abs(window.scrollY - target) > 1) {
+				// «Instant», ikke «auto»: arver scroll-behavior smooth hvis den settes globalt,
+				// og en myk animasjon per ramme blir seig i stedet for å holde vinduet i ro.
+				window.scrollTo({ top: target, behavior: "instant" });
+			}
+		}
+		if (performance.now() - start < duration) {
+			requestAnimationFrame(frame);
+		} else {
+			stop();
+		}
+	}
+	requestAnimationFrame(frame);
 }
 
 const tabsListVariants = cva(
