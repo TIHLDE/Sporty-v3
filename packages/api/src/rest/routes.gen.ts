@@ -4,11 +4,14 @@
 import * as r6 from "./routes/announcements/[announcementId]/comments";
 import * as r33 from "./routes/announcements/[announcementId]/index";
 import * as r40 from "./routes/announcements/index";
+import * as rBlock from "./routes/blocks/[userId]";
+import * as rBlocks from "./routes/blocks/index";
 import * as r41 from "./routes/contacts";
 import * as r34 from "./routes/conversations/[conversationId]/index";
 import * as r7 from "./routes/conversations/[conversationId]/messages";
 import * as rMessage from "./routes/conversations/[conversationId]/messages/[messageId]/index";
 import * as rMessageReactions from "./routes/conversations/[conversationId]/messages/[messageId]/reactions";
+import * as rMessageReport from "./routes/conversations/[conversationId]/messages/[messageId]/report";
 import * as r8 from "./routes/conversations/[conversationId]/read";
 import * as r26 from "./routes/conversations/direct";
 import * as r42 from "./routes/conversations/index";
@@ -71,6 +74,8 @@ import * as r38 from "./routes/polls/[pollId]/index";
 import * as r25 from "./routes/polls/[pollId]/vote";
 import * as r50 from "./routes/push-tokens/index";
 import * as r32 from "./routes/push-tokens/test";
+import * as rReport from "./routes/reports/[reportId]";
+import * as rReports from "./routes/reports/index";
 import * as r51 from "./routes/unread";
 import * as r39 from "./routes/uploads/[uploadId]";
 import * as r52 from "./routes/uploads/index";
@@ -103,6 +108,10 @@ export const routes = [
 		module: rMatchStatType,
 	},
 	{ pattern: "/events/:eventId/match-facts/:statId", module: rMatchStat },
+	{
+		pattern: "/conversations/:conversationId/messages/:messageId/report",
+		module: rMessageReport,
+	},
 	{
 		pattern: "/conversations/:conversationId/messages/:messageId/reactions",
 		module: rMessageReactions,
@@ -143,6 +152,10 @@ export const routes = [
 	{ pattern: "/polls/:pollId/comments", module: r24 },
 	{ pattern: "/polls/:pollId/vote", module: r25 },
 	{ pattern: "/conversations/direct", module: r26 },
+	{ pattern: "/reports/:reportId", module: rReport },
+	{ pattern: "/reports", module: rReports },
+	{ pattern: "/blocks/:userId", module: rBlock },
+	{ pattern: "/blocks", module: rBlocks },
 	{ pattern: "/gifs/favorites/:slug", module: rGifFavorite },
 	{ pattern: "/gifs/favorites", module: rGifFavorites },
 	{ pattern: "/fines/mine", module: r27 },

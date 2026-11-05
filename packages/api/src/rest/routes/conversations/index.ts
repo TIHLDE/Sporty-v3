@@ -4,6 +4,7 @@ import {
 	describeConversation,
 	getMyConversations,
 } from "../../server/messaging";
+import { blockedIds } from "../../server/moderation";
 import { prisma } from "../../server/prisma";
 import type { Conversation } from "../../types";
 
@@ -11,16 +12,17 @@ import type { Conversation } from "../../types";
 export const GET = handler(async (request): Promise<Conversation[]> => {
 	const userId = await getUserId(request);
 	const conversations = await getMyConversations(userId);
+	const blocked = await blockedIds(userId);
 
 	const result = await Promise.all(
 		conversations.map(async (c) => {
 			const [last, unread] = await Promise.all([
 				prisma.message.findFirst({
-					where: { conversationId: c.id },
+					where: { conversationId: c.id, senderId: { notIn: blocked } },
 					orderBy: { sentAt: "desc" },
 					include: { sender: { select: { name: true } } },
 				}),
-				countUnread(c, userId),
+				countUnread(c, userId, blocked),
 			]);
 			return {
 				id: c.id,

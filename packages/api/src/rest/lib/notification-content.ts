@@ -30,6 +30,17 @@ export function fineContent(fine: {
 	};
 }
 
+/** Ny rapport om en melding. Sier ikke hva den handler om, det ser man på rapportsiden. */
+export function reportContent(groupName: string | null): NotificationContent {
+	return {
+		title: "Ny rapport",
+		body: groupName
+			? `En melding i ${groupName} er rapportert`
+			: "En direktemelding er rapportert",
+		url: "/rapporter",
+	};
+}
+
 /** Så mye av meldingen som vises i varselet. iOS kutter uansett etter noen linjer. */
 const MESSAGE_PREVIEW_LENGTH = 150;
 

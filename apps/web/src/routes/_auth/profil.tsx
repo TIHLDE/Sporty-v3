@@ -127,6 +127,8 @@ function ProfileComponent() {
 			<PushSection />
 			<CalendarSection />
 			<AppearanceSection />
+			<BlockedSection />
+			<ReportsLink />
 			<SignOut />
 		</div>
 	);
@@ -155,6 +157,55 @@ function Section({
 }
 
 /** Pushvarslene sendes til appen. Valgene lagres på brukeren, så de gjelder alle telefonene. */
+/** Personene brukeren har blokkert. Vises bare når det er noen. */
+function BlockedSection() {
+	const trpc = useTRPC();
+	const queryClient = useQueryClient();
+	const blocks = useQuery(trpc.messages.blocks.queryOptions());
+	const unblock = useMutation(
+		trpc.messages.unblock.mutationOptions({
+			onSuccess: () =>
+				queryClient.invalidateQueries({ queryKey: trpc.messages.pathKey() }),
+		}),
+	);
+
+	if (!blocks.data?.length) return null;
+	return (
+		<Section title="Blokkerte personer">
+			<div className="grid gap-2">
+				{blocks.data.map((user) => (
+					<div key={user.id} className="flex items-center gap-3">
+						<span className="min-w-0 flex-1 truncate text-sm">{user.name}</span>
+						<Button
+							variant="outline"
+							size="sm"
+							disabled={unblock.isPending}
+							onClick={() => unblock.mutate({ userId: user.id })}
+						>
+							Opphev
+						</Button>
+					</div>
+				))}
+			</div>
+		</Section>
+	);
+}
+
+/** Lenke til rapportene for dem som har noen å behandle. */
+function ReportsLink() {
+	const trpc = useTRPC();
+	const reports = useQuery(trpc.messages.reports.queryOptions());
+
+	if (!reports.data?.length) return null;
+	return (
+		<Section title="Rapporter">
+			<Link to="/rapporter" className="text-sm underline underline-offset-4">
+				{reports.data.length} åpne rapporter
+			</Link>
+		</Section>
+	);
+}
+
 function PushSection() {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();

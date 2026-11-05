@@ -822,6 +822,48 @@ const messagesRouter = router({
 				},
 			),
 		),
+	/** Rapporter en melding til sub-/admin, eller til Index for direktemeldinger. */
+	report: protectedProcedure
+		.input(
+			z.object({
+				conversationId: id,
+				messageId: id,
+				reason: z.enum(["harassment", "inappropriate", "spam", "other"]),
+			}),
+		)
+		.mutation(({ ctx, input }) =>
+			restCall(
+				ctx,
+				"POST",
+				`/conversations/${enc(input.conversationId)}/messages/${enc(input.messageId)}/report`,
+				{ reason: input.reason },
+			),
+		),
+	/** Åpne rapporter brukeren kan behandle. */
+	reports: protectedProcedure.query(({ ctx }) =>
+		restCall<Dto.MessageReport[]>(ctx, "GET", "/reports"),
+	),
+	resolveReport: protectedProcedure
+		.input(z.object({ reportId: id, action: z.enum(["remove", "dismiss"]) }))
+		.mutation(({ ctx, input }) =>
+			restCall(ctx, "PATCH", `/reports/${enc(input.reportId)}`, {
+				action: input.action,
+			}),
+		),
+	/** Personene brukeren har blokkert. */
+	blocks: protectedProcedure.query(({ ctx }) =>
+		restCall<Dto.User[]>(ctx, "GET", "/blocks"),
+	),
+	block: protectedProcedure
+		.input(z.object({ userId: id }))
+		.mutation(({ ctx, input }) =>
+			restCall(ctx, "POST", "/blocks", { userId: input.userId }),
+		),
+	unblock: protectedProcedure
+		.input(z.object({ userId: id }))
+		.mutation(({ ctx, input }) =>
+			restCall(ctx, "DELETE", `/blocks/${enc(input.userId)}`),
+		),
 	/** GIF-ene brukeren har lagret, sist lagret først. */
 	favoriteGifs: protectedProcedure.query(({ ctx }) =>
 		restCall<Dto.FavoriteGif[]>(ctx, "GET", "/gifs/favorites"),
