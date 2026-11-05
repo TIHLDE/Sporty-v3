@@ -12,6 +12,7 @@ import * as rMessageReactions from "./routes/conversations/[conversationId]/mess
 import * as r8 from "./routes/conversations/[conversationId]/read";
 import * as r26 from "./routes/conversations/direct";
 import * as r42 from "./routes/conversations/index";
+import * as rDevAdmin from "./routes/dev/admin";
 import * as r9 from "./routes/events/[eventId]/attendance";
 import * as r10 from "./routes/events/[eventId]/collective-fine";
 import * as r35 from "./routes/events/[eventId]/index";
@@ -158,6 +159,7 @@ export const routes = [
 	{ pattern: "/announcements", module: r40 },
 	{ pattern: "/contacts", module: r41 },
 	{ pattern: "/conversations", module: r42 },
+	{ pattern: "/dev/admin", module: rDevAdmin },
 	{ pattern: "/events", module: r43 },
 	{ pattern: "/fines", module: r44 },
 	{ pattern: "/groups", module: r45 },
