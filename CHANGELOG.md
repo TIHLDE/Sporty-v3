@@ -34,6 +34,10 @@ Kopier denne blokken til toppen av listen under, og ta bare med kategoriene som 
 
 - **Favicon**: nettsiden viser Sporty-skjoldet fra appen i nettleserfanen
 
+### 🐛 Fix
+
+- Bildeopplasting feilet i produksjon fordi serveren ikke hadde skrivetilgang til lagringsmappen. En feilet opplasting etterlater heller ikke lenger en rad uten fil
+
 ## 2026-11-02
 
 ### ✨ Feature

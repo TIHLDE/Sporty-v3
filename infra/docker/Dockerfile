@@ -28,6 +28,10 @@ ENV HOST=0.0.0.0
 ENV PORT=3000
 EXPOSE 3000
 
+# Opplastede filer lagres her. Mappen må eies av node, ellers feiler opplasting med EACCES. Et nytt
+# navngitt volum arver eieren herfra.
+RUN mkdir -p /app/apps/web/storage/uploads && chown -R node:node /app/apps/web/storage
+
 USER node
 
 # SSR chunks require workspace dependencies at runtime
