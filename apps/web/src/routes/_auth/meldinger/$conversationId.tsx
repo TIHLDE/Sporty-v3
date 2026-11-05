@@ -19,6 +19,11 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@sporty/ui/components/dropdown-menu";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@sporty/ui/components/popover";
 import { Textarea } from "@sporty/ui/components/textarea";
 import {
 	Tooltip,
@@ -44,15 +49,23 @@ import {
 	PlusIcon,
 	ReplyIcon,
 	SendIcon,
+	SmileIcon,
+	StarIcon,
 	Trash2Icon,
 	XIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import {
+	ChatPicker,
+	useFavoriteGifs,
+	useKlipyCustomerId,
+} from "@/components/chat-picker";
 import { EmojiPicker } from "@/components/emoji-picker";
 import { PageState } from "@/components/page-state";
 import { UserAvatar } from "@/components/user-avatar";
+import { reportGifShare, type Gif } from "@/lib/klipy";
 import { useTRPC } from "@/utils/trpc";
 
 export const Route = createFileRoute("/_auth/meldinger/$conversationId")({
@@ -245,6 +258,7 @@ function Chat({ conversation }: { conversation: ConversationDetails }) {
 
 			<Composer
 				conversationId={conversation.id}
+				myId={myId}
 				text={text}
 				setText={setText}
 				target={target}
@@ -342,15 +356,17 @@ function MessageItem({
 							className={cn(
 								"rounded-lg text-sm whitespace-pre-wrap",
 								message.deleted && "border text-muted-foreground italic",
+								// GIF-er har ingen boble, bare tid og lest-status under.
+								message.gif && "bg-transparent! p-0! text-foreground!",
 							)}
 						>
 							{message.replyTo && !message.deleted && (
 								<span
 									className={cn(
 										"mb-1.5 block rounded-md border-l-2 px-2 py-1 not-italic",
-										isMine
+										isMine && !message.gif
 											? "border-current/70 bg-white/15"
-											: "border-primary bg-background/60",
+											: "border-primary bg-muted",
 									)}
 								>
 									<span className="block truncate text-xs font-semibold">
@@ -377,7 +393,7 @@ function MessageItem({
 									loading="lazy"
 									width={message.gif.width}
 									height={message.gif.height}
-									className="h-auto max-w-60 rounded-md"
+									className="h-auto w-60 max-w-full rounded-lg"
 								/>
 							) : (
 								message.body
@@ -486,6 +502,9 @@ function MessageActions({
 	onReact: (emoji: string) => void;
 }) {
 	const [pickerOpen, setPickerOpen] = useState(false);
+	const { isFavorite, setFavorite } = useFavoriteGifs();
+	const { gif } = message;
+	const favorite = gif ? isFavorite(gif.slug) : false;
 
 	return (
 		<>
@@ -528,7 +547,16 @@ function MessageActions({
 						<ReplyIcon />
 						Svar
 					</DropdownMenuItem>
-					{!message.gif && (
+					{message.gif ? (
+						<DropdownMenuItem
+							onClick={() =>
+								gif && setFavorite({ ...gif, title: "" }, !favorite)
+							}
+						>
+							<StarIcon />
+							{favorite ? "Fjern fra favoritter" : "Legg til i favoritter"}
+						</DropdownMenuItem>
+					) : (
 						<DropdownMenuItem
 							onClick={() =>
 								navigator.clipboard
@@ -580,8 +608,10 @@ function Composer({
 	target,
 	isMyMessage,
 	onCancel,
+	myId,
 }: {
 	conversationId: string;
+	myId: string | undefined;
 	text: string;
 	setText: (text: string) => void;
 	target: ComposerTarget;
@@ -592,6 +622,8 @@ function Composer({
 	const queryClient = useQueryClient();
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const editing = target?.mode === "edit";
+	const customerId = useKlipyCustomerId(myId);
+	const [pickerOpen, setPickerOpen] = useState(false);
 	// Hopp til skrivefeltet når man velger å svare på eller redigere en melding.
 	useEffect(() => {
 		if (target) textareaRef.current?.focus();
@@ -641,6 +673,20 @@ function Composer({
 		}
 	};
 
+	const sendGif = (gif: Gif, query: string) => {
+		setPickerOpen(false);
+		const replyToId = target?.mode === "reply" ? target.message.id : null;
+		onCancel();
+		send.mutate(
+			{ conversationId, body: "GIF", replyToId, gif },
+			{
+				onError: (error) =>
+					toast.error(`GIF-en ble ikke sendt: ${error.message}`),
+			},
+		);
+		if (customerId) reportGifShare(gif.slug, customerId, query);
+	};
+
 	return (
 		<div className="flex flex-col gap-2">
 			{target && (
@@ -666,7 +712,7 @@ function Composer({
 				</div>
 			)}
 			<form
-				className="flex items-end gap-2"
+				className="flex items-end gap-1 rounded-3xl bg-muted py-1 pr-1 pl-4 ring-1 ring-foreground/10 transition-shadow focus-within:ring-2 focus-within:ring-ring/50"
 				onSubmit={(e) => {
 					e.preventDefault();
 					submit();
@@ -675,7 +721,7 @@ function Composer({
 				<Textarea
 					ref={textareaRef}
 					aria-label="Melding"
-					className="max-h-32 min-h-10 flex-1 resize-none"
+					className="max-h-32 min-h-10 flex-1 resize-none border-0 bg-transparent px-0 py-2.5 text-sm shadow-none outline-none focus-visible:border-transparent focus-visible:ring-0 dark:bg-transparent"
 					rows={1}
 					maxLength={4000}
 					placeholder="Skriv en melding"
@@ -691,14 +737,39 @@ function Composer({
 						}
 					}}
 				/>
-				<Button
-					type="submit"
-					size="icon"
-					aria-label={editing ? "Lagre" : "Send"}
-					disabled={!text.trim() || pending}
-				>
-					{editing ? <CheckIcon /> : <SendIcon />}
-				</Button>
+				<Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+					<PopoverTrigger
+						render={
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								className="size-10 rounded-full text-muted-foreground"
+								aria-label="Emoji og GIF"
+							/>
+						}
+					>
+						<SmileIcon />
+					</PopoverTrigger>
+					<PopoverContent>
+						<ChatPicker
+							customerId={customerId}
+							onEmoji={(emoji) => setText(text + emoji)}
+							onGif={sendGif}
+						/>
+					</PopoverContent>
+				</Popover>
+				{text.trim() && (
+					<Button
+						type="submit"
+						size="icon"
+						className="size-10 rounded-full"
+						aria-label={editing ? "Lagre" : "Send"}
+						disabled={pending}
+					>
+						{editing ? <CheckIcon /> : <SendIcon />}
+					</Button>
+				)}
 			</form>
 		</div>
 	);

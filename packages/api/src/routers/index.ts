@@ -6,6 +6,12 @@ import { restCall } from "./rest-call";
 
 const id = z.string().min(1);
 const fineStatus = z.enum(["pending", "approved", "paid", "rejected"]);
+const gif = z.object({
+	slug: z.string().min(1),
+	url: z.string().url(),
+	width: z.number().int().positive(),
+	height: z.number().int().positive(),
+});
 
 /** Bygger ?a=b, uten tomme verdier. */
 function query(params: Record<string, string | number | undefined>) {
@@ -801,6 +807,7 @@ const messagesRouter = router({
 				conversationId: id,
 				body: z.string(),
 				replyToId: id.nullish(),
+				gif: gif.nullish(),
 			}),
 		)
 		.mutation(({ ctx, input }) =>
@@ -808,8 +815,26 @@ const messagesRouter = router({
 				ctx,
 				"POST",
 				`/conversations/${enc(input.conversationId)}/messages`,
-				{ body: input.body, replyToId: input.replyToId ?? null },
+				{
+					body: input.body,
+					replyToId: input.replyToId ?? null,
+					gif: input.gif ?? null,
+				},
 			),
+		),
+	/** GIF-ene brukeren har lagret, sist lagret først. */
+	favoriteGifs: protectedProcedure.query(({ ctx }) =>
+		restCall<Dto.FavoriteGif[]>(ctx, "GET", "/gifs/favorites"),
+	),
+	addFavoriteGif: protectedProcedure
+		.input(gif.extend({ title: z.string() }))
+		.mutation(({ ctx, input }) =>
+			restCall<Dto.FavoriteGif>(ctx, "POST", "/gifs/favorites", input),
+		),
+	removeFavoriteGif: protectedProcedure
+		.input(z.object({ slug: z.string().min(1) }))
+		.mutation(({ ctx, input }) =>
+			restCall(ctx, "DELETE", `/gifs/favorites/${enc(input.slug)}`),
 		),
 	/** Reager med en emoji, eller fjern reaksjonen hvis man allerede har den. */
 	react: protectedProcedure
