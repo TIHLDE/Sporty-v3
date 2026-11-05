@@ -28,6 +28,12 @@ Kopier denne blokken til toppen av listen under, og ta bare med kategoriene som 
 
 ---
 
+## 2026-11-05
+
+### ✨ Feature
+
+- **Favicon**: nettsiden viser Sporty-skjoldet fra appen i nettleserfanen
+
 ## 2026-11-02
 
 ### ✨ Feature
