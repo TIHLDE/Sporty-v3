@@ -1,4 +1,5 @@
 import { messageContent } from "../../../lib/notification-content";
+import { parseGif } from "../../../server/gifs";
 import { HttpError, getUserId, handler, readJson } from "../../../server/http";
 import {
 	MAX_MESSAGE_LENGTH,
@@ -9,7 +10,7 @@ import {
 } from "../../../server/messaging";
 import { prisma } from "../../../server/prisma";
 import { sendPush } from "../../../server/push";
-import type { MessagePage } from "../../../types";
+import type { MessageGif, MessagePage } from "../../../types";
 
 const PAGE_SIZE = 30;
 
@@ -42,18 +43,22 @@ export const GET = handler<{ conversationId: string }>(
 );
 
 /**
- * Send en melding, eventuelt som svar på en annen (`replyToId`). Avsenderen har dermed lest samtalen. De andre i samtalen får push-varsel: alle
+ * Send en melding, eventuelt som svar på en annen (`replyToId`). Med `gif` består meldingen av en
+ * GIF, og teksten settes til «GIF» for varsler, svar og samtalelisten. Avsenderen har dermed lest samtalen. De andre i samtalen får push-varsel: alle
  * medlemmene av gruppen i en gruppechat, den andre personen i en direktemelding.
  */
 export const POST = handler<{ conversationId: string }>(
 	async (request, { conversationId }) => {
 		const userId = await getUserId(request);
 		const conversation = await requireConversation(userId, conversationId);
-		const { body, replyToId } = await readJson<{
-			body: string;
+		const input = await readJson<{
+			body?: string;
 			replyToId?: string | null;
+			gif?: Partial<MessageGif> | null;
 		}>(request);
-		const text = body?.trim();
+		const { replyToId } = input;
+		const gif = input.gif ? parseGif(input.gif) : null;
+		const text = gif ? "GIF" : input.body?.trim();
 		if (!text) throw new HttpError(400, "Meldingen er tom");
 		if (text.length > MAX_MESSAGE_LENGTH)
 			throw new HttpError(400, `Maks ${MAX_MESSAGE_LENGTH} tegn`);
@@ -71,6 +76,12 @@ export const POST = handler<{ conversationId: string }>(
 				senderId: userId,
 				body: text,
 				replyToId: replyToId || null,
+				...(gif && {
+					gifSlug: gif.slug,
+					gifUrl: gif.url,
+					gifWidth: gif.width,
+					gifHeight: gif.height,
+				}),
 			},
 			include: messageInclude,
 		});

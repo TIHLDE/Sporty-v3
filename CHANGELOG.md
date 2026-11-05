@@ -33,6 +33,7 @@ Kopier denne blokken til toppen av listen under, og ta bare med kategoriene som 
 ### ✨ Feature
 
 - **Favicon**: nettsiden viser Sporty-skjoldet fra appen i nettleserfanen
+- **GIF-er i meldinger**: API-et tar imot GIF-meldinger fra Klipy og lagrer hver persons favoritter (`/gifs/favorites`). Nettsiden viser GIF-er i samtaler
 
 ## 2026-11-02
 

@@ -368,7 +368,20 @@ function MessageItem({
 									</span>
 								</span>
 							)}
-							{message.deleted ? "Meldingen ble slettet" : message.body}
+							{message.deleted ? (
+								"Meldingen ble slettet"
+							) : message.gif ? (
+								<img
+									src={message.gif.url}
+									alt="GIF"
+									loading="lazy"
+									width={message.gif.width}
+									height={message.gif.height}
+									className="h-auto max-w-60 rounded-md"
+								/>
+							) : (
+								message.body
+							)}
 							<span
 								className={cn(
 									"mt-0.5 flex items-center justify-end gap-1 text-[10px]",
@@ -515,22 +528,26 @@ function MessageActions({
 						<ReplyIcon />
 						Svar
 					</DropdownMenuItem>
-					<DropdownMenuItem
-						onClick={() =>
-							navigator.clipboard
-								.writeText(message.body)
-								.then(() => toast.success("Kopiert"))
-						}
-					>
-						<CopyIcon />
-						Kopier
-					</DropdownMenuItem>
+					{!message.gif && (
+						<DropdownMenuItem
+							onClick={() =>
+								navigator.clipboard
+									.writeText(message.body)
+									.then(() => toast.success("Kopiert"))
+							}
+						>
+							<CopyIcon />
+							Kopier
+						</DropdownMenuItem>
+					)}
 					{isMine && canStillChange(message.sentAt) && (
 						<>
-							<DropdownMenuItem onClick={onEdit}>
-								<PencilIcon />
-								Rediger
-							</DropdownMenuItem>
+							{!message.gif && (
+								<DropdownMenuItem onClick={onEdit}>
+									<PencilIcon />
+									Rediger
+								</DropdownMenuItem>
+							)}
 							<DropdownMenuItem variant="destructive" onClick={onDelete}>
 								<Trash2Icon />
 								Slett

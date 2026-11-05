@@ -11,6 +11,8 @@ import * as rMessage from "./routes/conversations/[conversationId]/messages/[mes
 import * as rMessageReactions from "./routes/conversations/[conversationId]/messages/[messageId]/reactions";
 import * as r8 from "./routes/conversations/[conversationId]/read";
 import * as r26 from "./routes/conversations/direct";
+import * as rGifFavorite from "./routes/gifs/favorites/[slug]";
+import * as rGifFavorites from "./routes/gifs/favorites/index";
 import * as r42 from "./routes/conversations/index";
 import * as r9 from "./routes/events/[eventId]/attendance";
 import * as r10 from "./routes/events/[eventId]/collective-fine";
@@ -141,6 +143,8 @@ export const routes = [
 	{ pattern: "/polls/:pollId/comments", module: r24 },
 	{ pattern: "/polls/:pollId/vote", module: r25 },
 	{ pattern: "/conversations/direct", module: r26 },
+	{ pattern: "/gifs/favorites/:slug", module: rGifFavorite },
+	{ pattern: "/gifs/favorites", module: rGifFavorites },
 	{ pattern: "/fines/mine", module: r27 },
 	{ pattern: "/fines/snitches", module: rSnitches },
 	{ pattern: "/groups/managed", module: r28 },
