@@ -94,13 +94,17 @@ export async function othersReadAt(
 }
 
 /** Antall uleste meldinger fra andre siden brukeren sist leste samtalen. */
-export function countUnread(conversation: ConversationRow, userId: string) {
+export function countUnread(
+	conversation: ConversationRow,
+	userId: string,
+	blocked: string[] = [],
+) {
 	const lastReadAt =
 		conversation.members.find((m) => m.userId === userId)?.lastReadAt ?? null;
 	return prisma.message.count({
 		where: {
 			conversationId: conversation.id,
-			senderId: { not: userId },
+			senderId: { notIn: [userId, ...blocked] },
 			...(lastReadAt ? { sentAt: { gt: lastReadAt } } : {}),
 		},
 	});

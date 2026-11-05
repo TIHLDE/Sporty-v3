@@ -39,6 +39,7 @@ function PollComponent() {
 					</Link>
 					<PollCard poll={p} linkToDetails={false} />
 					<Comments
+						type="poll"
 						comments={p.comments}
 						allowComments={p.allowComments}
 						sending={comment.isPending}

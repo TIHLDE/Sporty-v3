@@ -40,6 +40,7 @@ import { type ReactNode, useState } from "react";
 
 import { GroupBadge } from "@/components/group-badge";
 import { activeItem, MobileNav, type NavItem } from "@/components/mobile-nav";
+import { TermsGate } from "@/components/terms";
 import { UserMenu } from "@/components/user-menu";
 import { getUser } from "@/functions/get-user";
 import { useTRPC } from "@/utils/trpc";
@@ -96,6 +97,7 @@ function AuthLayout() {
 		...item,
 		count: item.unread ? (unread.data?.[item.unread] ?? 0) : 0,
 	}));
+	const me = useQuery(trpc.me.queryOptions());
 
 	return (
 		<SidebarProvider>
@@ -114,7 +116,7 @@ function AuthLayout() {
 					data-page-transition
 					className="mx-auto flex max-w-full justify-center px-4 pt-6 pb-28 md:px-8 md:pt-8 md:pb-12 lg:px-10"
 				>
-					<Outlet />
+					{me.data && !me.data.termsAccepted ? <TermsGate /> : <Outlet />}
 				</main>
 				<MobileNav items={items} />
 			</div>

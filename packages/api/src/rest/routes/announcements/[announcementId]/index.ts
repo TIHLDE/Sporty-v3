@@ -9,6 +9,7 @@ import {
 	handler,
 	requireAccess,
 } from "../../../server/http";
+import { blockedIds } from "../../../server/moderation";
 import { prisma } from "../../../server/prisma";
 import type { AnnouncementDetails } from "../../../types";
 
@@ -19,7 +20,11 @@ export const GET = handler<{ announcementId: string }>(
 			where: { id: announcementId },
 			include: {
 				...announcementInclude,
-				comments: { include: { author: true }, orderBy: { createdAt: "asc" } },
+				comments: {
+					where: { authorId: { notIn: await blockedIds(userId) } },
+					include: { author: true },
+					orderBy: { createdAt: "asc" },
+				},
 			},
 		});
 		if (!announcement) throw new HttpError(404, "Fant ikke kunngjøringen");

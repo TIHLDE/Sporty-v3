@@ -51,6 +51,7 @@ function AnnouncementComponent() {
 					<p className="whitespace-pre-wrap">{a.body}</p>
 					<AnnouncementMedia media={a.media} attachments={a.attachments} />
 					<Comments
+						type="announcement"
 						comments={a.comments}
 						allowComments={a.allowComments}
 						sending={comment.isPending}

@@ -12,6 +12,7 @@ import {
 	BellIcon,
 	CalendarDaysIcon,
 	CircleDollarSignIcon,
+	FlagIcon,
 	MegaphoneIcon,
 	UserCheckIcon,
 	WalletIcon,
@@ -27,6 +28,7 @@ const ICONS: Record<NotificationType, typeof BellIcon> = {
 	announcement: MegaphoneIcon,
 	poll: BarChart3Icon,
 	payment: WalletIcon,
+	report: FlagIcon,
 };
 
 /**

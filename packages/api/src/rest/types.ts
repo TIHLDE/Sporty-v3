@@ -37,6 +37,8 @@ export interface Inactivity {
 
 /** Den innloggede brukeren, med gruppene der hen er satt som inaktiv. */
 export interface Me extends User {
+	/** Brukeren har godtatt gjeldende versjon av vilkårene. */
+	termsAccepted: boolean;
 	inactiveIn: (Inactivity & {
 		groupId: string;
 		groupName: string;
@@ -391,7 +393,8 @@ export type NotificationType =
 	| "fine"
 	| "announcement"
 	| "poll"
-	| "payment";
+	| "payment"
+	| "report";
 
 export interface Notification {
 	id: string;
@@ -434,6 +437,23 @@ export interface Message {
 	reactions: MessageReaction[];
 	/** GIF-en meldingen består av. Da er `body` bare «GIF», så forhåndsvisninger gir mening. */
 	gif: MessageGif | null;
+}
+
+export type ReportReason = "harassment" | "inappropriate" | "spam" | "other";
+
+/** En åpen rapport om en melding eller kommentar, slik sub-/admin eller Index ser den. */
+export interface MessageReport {
+	id: string;
+	kind: "message" | "comment";
+	reason: ReportReason;
+	/** Innholdet slik det var da det ble rapportert. */
+	body: string;
+	gifUrl: string | null;
+	createdAt: string;
+	reporter: User;
+	sender: User;
+	/** Null for direktemeldinger. */
+	groupName: string | null;
 }
 
 export interface MessageGif {

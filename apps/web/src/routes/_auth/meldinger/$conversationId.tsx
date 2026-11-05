@@ -40,9 +40,11 @@ import {
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
 	ArrowLeftIcon,
+	BanIcon,
 	CheckCheckIcon,
 	CheckIcon,
 	CopyIcon,
+	FlagIcon,
 	Loader2,
 	MoreHorizontalIcon,
 	PencilIcon,
@@ -64,6 +66,7 @@ import {
 } from "@/components/chat-picker";
 import { EmojiPicker } from "@/components/emoji-picker";
 import { PageState } from "@/components/page-state";
+import { ReportDialog } from "@/components/report-dialog";
 import { UserAvatar } from "@/components/user-avatar";
 import { reportGifShare, type Gif } from "@/lib/klipy";
 import { useTRPC } from "@/utils/trpc";
@@ -502,6 +505,26 @@ function MessageActions({
 	onReact: (emoji: string) => void;
 }) {
 	const [pickerOpen, setPickerOpen] = useState(false);
+	const [reportOpen, setReportOpen] = useState(false);
+	const trpc = useTRPC();
+	const queryClient = useQueryClient();
+	const report = useMutation(
+		trpc.messages.report.mutationOptions({
+			onSuccess: () => toast.success("Takk, meldingen er rapportert"),
+			onError: (error) =>
+				toast.error(`Rapporten ble ikke sendt: ${error.message}`),
+		}),
+	);
+	const block = useMutation(
+		trpc.messages.block.mutationOptions({
+			onSuccess: () => {
+				toast.success(`${message.sender.name} er blokkert`);
+				queryClient.invalidateQueries({ queryKey: trpc.messages.pathKey() });
+			},
+			onError: (error) =>
+				toast.error(`Personen ble ikke blokkert: ${error.message}`),
+		}),
+	);
 	const { isFavorite, setFavorite } = useFavoriteGifs();
 	const { gif } = message;
 	const favorite = gif ? isFavorite(gif.slug) : false;
@@ -582,8 +605,43 @@ function MessageActions({
 							</DropdownMenuItem>
 						</>
 					)}
+					{!isMine && (
+						<>
+							<DropdownMenuSeparator />
+							<DropdownMenuItem onClick={() => setReportOpen(true)}>
+								<FlagIcon />
+								Rapporter
+							</DropdownMenuItem>
+							<DropdownMenuItem
+								variant="destructive"
+								onClick={() => {
+									if (
+										window.confirm(
+											`Blokkere ${message.sender.name}? Du ser ikke lenger meldingene deres, og dere kan ikke sende direktemeldinger til hverandre.`,
+										)
+									)
+										block.mutate({ userId: message.sender.id });
+								}}
+							>
+								<BanIcon />
+								Blokker {message.sender.name}
+							</DropdownMenuItem>
+						</>
+					)}
 				</DropdownMenuContent>
 			</DropdownMenu>
+			<ReportDialog
+				open={reportOpen}
+				onOpenChange={setReportOpen}
+				title="Hvorfor rapporterer du meldingen?"
+				onSelect={(reason) =>
+					report.mutate({
+						conversationId: message.conversationId,
+						messageId: message.id,
+						reason,
+					})
+				}
+			/>
 			<Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
 				<DialogContent className="w-fit gap-3 p-3 pt-4">
 					<DialogHeader>
