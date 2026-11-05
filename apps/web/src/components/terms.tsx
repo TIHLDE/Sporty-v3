@@ -1,4 +1,4 @@
-import { TERMS_SECTIONS } from "@sporty/api/rest/lib/terms";
+import { PRIVACY_URL, TERMS_SECTIONS } from "@sporty/api/rest/lib/terms";
 import { Button } from "@sporty/ui/components/button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -15,6 +15,14 @@ export function TermsText() {
 					<p className="text-sm text-muted-foreground">{section.body}</p>
 				</section>
 			))}
+			<a
+				href={PRIVACY_URL}
+				target="_blank"
+				rel="noreferrer"
+				className="text-sm underline underline-offset-4"
+			>
+				Les personvernerklæringen
+			</a>
 		</div>
 	);
 }

@@ -5,6 +5,9 @@
 
 export const TERMS_VERSION = 1;
 
+/** Personvernerklæringen ligger hos TIHLDE. */
+export const PRIVACY_URL = "https://tihlde.org/personvern";
+
 export const TERMS_SECTIONS = [
 	{
 		title: "Hva Sporty er",
