@@ -839,6 +839,16 @@ const messagesRouter = router({
 				{ reason: input.reason },
 			),
 		),
+	/** Rapporter en kommentar på en kunngjøring eller avstemning. */
+	reportComment: protectedProcedure
+		.input(
+			z.object({
+				type: z.enum(["announcement", "poll"]),
+				commentId: id,
+				reason: z.enum(["harassment", "inappropriate", "spam", "other"]),
+			}),
+		)
+		.mutation(({ ctx, input }) => restCall(ctx, "POST", "/reports", input)),
 	/** Åpne rapporter brukeren kan behandle. */
 	reports: protectedProcedure.query(({ ctx }) =>
 		restCall<Dto.MessageReport[]>(ctx, "GET", "/reports"),
@@ -932,6 +942,9 @@ const messagesRouter = router({
 export const appRouter = router({
 	me: protectedProcedure.query(({ ctx }) =>
 		restCall<Dto.Me>(ctx, "GET", "/me"),
+	),
+	acceptTerms: protectedProcedure.mutation(({ ctx }) =>
+		restCall(ctx, "POST", "/me/terms"),
 	),
 	settings: settingsRouter,
 	notifications: notificationsRouter,

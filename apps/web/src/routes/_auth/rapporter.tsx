@@ -27,8 +27,8 @@ function ReportsComponent() {
 			<div>
 				<h1 className="text-2xl font-semibold">Rapporter</h1>
 				<p className="text-sm text-muted-foreground">
-					Meldinger som er rapportert i gruppene dine. Behandle dem innen 24
-					timer.
+					Meldinger og kommentarer som er rapportert i gruppene dine. Behandle
+					dem innen 24 timer.
 				</p>
 			</div>
 			<PageState query={reports}>
@@ -99,7 +99,7 @@ function ReportCard({ report }: { report: MessageReport }) {
 						resolve.mutate({ reportId: report.id, action: "remove" })
 					}
 				>
-					Slett meldingen
+					{report.kind === "comment" ? "Slett kommentaren" : "Slett meldingen"}
 				</Button>
 				<Button
 					variant="outline"

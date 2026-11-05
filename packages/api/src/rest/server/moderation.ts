@@ -5,7 +5,12 @@
 
 import type { Prisma } from "@sporty/db";
 
+import { REPORT_REASONS } from "../lib/messages";
+import { reportContent } from "../lib/notification-content";
+import type { ReportReason } from "../types";
+import { HttpError } from "./http";
 import { prisma } from "./prisma";
+import { sendPush } from "./push";
 
 const MODERATOR_ROLES = ["admin", "subadmin", "index"] as const;
 
@@ -56,7 +61,7 @@ export async function moderatedReports(
 	const isIndex = memberships.some((m) => m.role === "index");
 
 	return {
-		message: { senderId: { not: userId } },
+		senderId: { not: userId },
 		OR: [
 			{ groupId: { in: [...groupIds, ...subgroups.map((g) => g.id)] } },
 			...(isIndex ? [{ groupId: null }] : []),
@@ -87,4 +92,71 @@ export async function moderatorIds(groupId: string | null) {
 		distinct: ["userId"],
 	});
 	return rows.map((row) => row.userId);
+}
+
+/** Sjekker grunnen fra klienten. */
+export function parseReason(reason: unknown): ReportReason {
+	const match = REPORT_REASONS.find((r) => r.value === reason);
+	if (!match) throw new HttpError(400, "Velg en grunn");
+	return match.value;
+}
+
+type ReportTarget =
+	| { messageId: string }
+	| { announcementCommentId: string }
+	| { pollCommentId: string };
+
+/**
+ * Lagrer rapporten og varsler dem som skal behandle den. Teksten kopieres inn, så den kan vurderes
+ * selv om innholdet slettes. Å rapportere det samme to ganger gjør ingenting.
+ */
+export async function fileReport(report: {
+	target: ReportTarget;
+	reporterId: string;
+	senderId: string;
+	groupId: string | null;
+	groupName: string | null;
+	reason: ReportReason;
+	body: string;
+	gifUrl?: string | null;
+}) {
+	const { target, reporterId, senderId, groupId, groupName, reason, body } =
+		report;
+	if (senderId === reporterId)
+		throw new HttpError(400, "Du kan ikke rapportere ditt eget innhold");
+	const existing = await prisma.messageReport.findFirst({
+		where: { reporterId, ...target },
+	});
+	if (existing) return;
+
+	await prisma.messageReport.create({
+		data: {
+			...target,
+			reporterId,
+			senderId,
+			groupId,
+			reason,
+			body,
+			gifUrl: report.gifUrl ?? null,
+		},
+	});
+
+	const content = reportContent(
+		groupName,
+		"messageId" in target ? "melding" : "kommentar",
+	);
+	// Den som er rapportert skal ikke varsles, selv om vedkommende er sub-/admin.
+	const moderators = (await moderatorIds(groupId)).filter(
+		(id) => id !== senderId && id !== reporterId,
+	);
+	await prisma.notification.createMany({
+		data: moderators.map((id) => ({
+			userId: id,
+			groupId,
+			type: "report" as const,
+			text: content.body,
+			href: content.url,
+		})),
+	});
+	void sendPush(moderators, "message", content);
 }

@@ -5,6 +5,7 @@ import {
 	handler,
 	requireAccess,
 } from "../../../server/http";
+import { blockedIds } from "../../../server/moderation";
 import { prisma } from "../../../server/prisma";
 import type { PollDetails } from "../../../types";
 
@@ -15,7 +16,11 @@ export const GET = handler<{ pollId: string }>(
 			where: { id: pollId },
 			include: {
 				...pollInclude,
-				comments: { include: { author: true }, orderBy: { createdAt: "asc" } },
+				comments: {
+					where: { authorId: { notIn: await blockedIds(userId) } },
+					include: { author: true },
+					orderBy: { createdAt: "asc" },
+				},
 			},
 		});
 		if (!poll) throw new HttpError(404, "Fant ikke avstemningen");

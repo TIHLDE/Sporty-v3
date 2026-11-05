@@ -107,6 +107,10 @@ model Person {
   blocksReceived       UserBlock[]           @relation("Blocked")
   reportsMade          MessageReport[]       @relation("Reporter")
   reportsResolved      MessageReport[]       @relation("Resolver")
+  reportsAgainst       MessageReport[]       @relation("ReportedUser")
+  /// Når brukeren godtok vilkårene, og hvilken versjon. Se lib/terms.ts.
+  termsAcceptedAt      DateTime?
+  termsVersion         Int?
   pushTokens           PushToken[]
   notificationSettings NotificationSettings?
   matchStats           MatchStat[]
@@ -342,13 +346,14 @@ model Announcement {
 }
 
 model AnnouncementComment {
-  id             String       @id @default(cuid())
+  id             String          @id @default(cuid())
   announcementId String
   authorId       String
   body           String
-  createdAt      DateTime     @default(now())
-  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
-  author         Person       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt      DateTime        @default(now())
+  announcement   Announcement    @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  author         Person          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  reports        MessageReport[]
 
   @@index([announcementId, createdAt])
 }
@@ -392,13 +397,14 @@ model Poll {
 }
 
 model PollComment {
-  id        String   @id @default(cuid())
+  id        String          @id @default(cuid())
   pollId    String
   authorId  String
   body      String
-  createdAt DateTime @default(now())
-  poll      Poll     @relation(fields: [pollId], references: [id], onDelete: Cascade)
-  author    Person   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt DateTime        @default(now())
+  poll      Poll            @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  author    Person          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  reports   MessageReport[]
 
   @@index([pollId, createdAt])
 }
@@ -610,26 +616,36 @@ model UserBlock {
   @@index([blockedId])
 }
 
-/// En rapportert melding. Teksten kopieres hit, så den kan vurderes selv om meldingen slettes.
+/// En rapportert melding eller kommentar. Akkurat ett av `messageId`, `announcementCommentId` og
+/// `pollCommentId` er satt. Teksten kopieres hit, så den kan vurderes selv om innholdet slettes.
 model MessageReport {
-  id           String       @id @default(cuid())
-  messageId    String
-  reporterId   String
+  id                    String               @id @default(cuid())
+  messageId             String?
+  announcementCommentId String?
+  pollCommentId         String?
+  reporterId            String
+  /// Den som skrev innholdet. Kan ikke behandle rapporten selv.
+  senderId              String
   /// Gruppen samtalen hører til. Null for direktemeldinger, som behandles av Index.
-  groupId      String?
-  reason       ReportReason
-  status       ReportStatus @default(open)
-  body         String
-  gifUrl       String?
-  createdAt    DateTime     @default(now())
-  resolvedAt   DateTime?
-  resolvedById String?
-  message      Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  reporter     Person       @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
-  group        Group?       @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  resolvedBy   Person?      @relation("Resolver", fields: [resolvedById], references: [id])
+  groupId               String?
+  reason                ReportReason
+  status                ReportStatus         @default(open)
+  body                  String
+  gifUrl                String?
+  createdAt             DateTime             @default(now())
+  resolvedAt            DateTime?
+  resolvedById          String?
+  message               Message?             @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  announcementComment   AnnouncementComment? @relation(fields: [announcementCommentId], references: [id], onDelete: SetNull)
+  pollComment           PollComment?         @relation(fields: [pollCommentId], references: [id], onDelete: SetNull)
+  reporter              Person               @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  sender                Person               @relation("ReportedUser", fields: [senderId], references: [id], onDelete: Cascade)
+  group                 Group?               @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  resolvedBy            Person?              @relation("Resolver", fields: [resolvedById], references: [id])
 
   @@unique([messageId, reporterId])
+  @@unique([announcementCommentId, reporterId])
+  @@unique([pollCommentId, reporterId])
   @@index([status, groupId])
 }
 

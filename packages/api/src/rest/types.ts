@@ -37,6 +37,8 @@ export interface Inactivity {
 
 /** Den innloggede brukeren, med gruppene der hen er satt som inaktiv. */
 export interface Me extends User {
+	/** Brukeren har godtatt gjeldende versjon av vilkårene. */
+	termsAccepted: boolean;
 	inactiveIn: (Inactivity & {
 		groupId: string;
 		groupName: string;
@@ -439,11 +441,12 @@ export interface Message {
 
 export type ReportReason = "harassment" | "inappropriate" | "spam" | "other";
 
-/** En åpen rapport om en melding, slik sub-/admin eller Index ser den. */
+/** En åpen rapport om en melding eller kommentar, slik sub-/admin eller Index ser den. */
 export interface MessageReport {
 	id: string;
+	kind: "message" | "comment";
 	reason: ReportReason;
-	/** Meldingen slik den var da den ble rapportert. */
+	/** Innholdet slik det var da det ble rapportert. */
 	body: string;
 	gifUrl: string | null;
 	createdAt: string;

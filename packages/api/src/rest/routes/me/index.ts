@@ -1,3 +1,4 @@
+import { TERMS_VERSION } from "../../lib/terms";
 import { getUserId, handler } from "../../server/http";
 import { syncFromRequest } from "../../server/photon-sync";
 import { prisma } from "../../server/prisma";
@@ -25,6 +26,7 @@ export const GET = handler(async (request): Promise<Me> => {
 		name: user.name,
 		email: user.email,
 		imageUrl: user.imageUrl,
+		termsAccepted: user.termsVersion === TERMS_VERSION,
 		inactiveIn: user.memberships.map((m) => ({
 			groupId: m.groupId,
 			groupName: m.group.name,

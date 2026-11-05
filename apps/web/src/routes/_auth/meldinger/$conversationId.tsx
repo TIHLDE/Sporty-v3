@@ -1,9 +1,5 @@
 import { formatTime } from "@sporty/api/rest/lib/dates";
-import {
-	REACTION_EMOJIS,
-	REPORT_REASONS,
-	canStillChange,
-} from "@sporty/api/rest/lib/messages";
+import { REACTION_EMOJIS, canStillChange } from "@sporty/api/rest/lib/messages";
 import type {
 	ConversationDetails,
 	Message as MessageDto,
@@ -70,6 +66,7 @@ import {
 } from "@/components/chat-picker";
 import { EmojiPicker } from "@/components/emoji-picker";
 import { PageState } from "@/components/page-state";
+import { ReportDialog } from "@/components/report-dialog";
 import { UserAvatar } from "@/components/user-avatar";
 import { reportGifShare, type Gif } from "@/lib/klipy";
 import { useTRPC } from "@/utils/trpc";
@@ -633,32 +630,18 @@ function MessageActions({
 					)}
 				</DropdownMenuContent>
 			</DropdownMenu>
-			<Dialog open={reportOpen} onOpenChange={setReportOpen}>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>Hvorfor rapporterer du meldingen?</DialogTitle>
-					</DialogHeader>
-					<div className="grid gap-2">
-						{REPORT_REASONS.map((reason) => (
-							<Button
-								key={reason.value}
-								variant="outline"
-								disabled={report.isPending}
-								onClick={() => {
-									setReportOpen(false);
-									report.mutate({
-										conversationId: message.conversationId,
-										messageId: message.id,
-										reason: reason.value,
-									});
-								}}
-							>
-								{reason.label}
-							</Button>
-						))}
-					</div>
-				</DialogContent>
-			</Dialog>
+			<ReportDialog
+				open={reportOpen}
+				onOpenChange={setReportOpen}
+				title="Hvorfor rapporterer du meldingen?"
+				onSelect={(reason) =>
+					report.mutate({
+						conversationId: message.conversationId,
+						messageId: message.id,
+						reason,
+					})
+				}
+			/>
 			<Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
 				<DialogContent className="w-fit gap-3 p-3 pt-4">
 					<DialogHeader>

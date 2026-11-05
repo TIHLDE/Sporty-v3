@@ -129,6 +129,11 @@ function ProfileComponent() {
 			<AppearanceSection />
 			<BlockedSection />
 			<ReportsLink />
+			<Section title="Vilkår">
+				<Link to="/vilkar" className="text-sm underline underline-offset-4">
+					Brukervilkår
+				</Link>
+			</Section>
 			<SignOut />
 		</div>
 	);

@@ -62,6 +62,7 @@ import * as r28 from "./routes/groups/managed";
 import * as r46 from "./routes/health";
 import * as r47 from "./routes/me/index";
 import * as r29 from "./routes/me/settings";
+import * as rMeTerms from "./routes/me/terms";
 import * as r22 from "./routes/notifications/[notificationId]/read";
 import * as r48 from "./routes/notifications/index";
 import * as r30 from "./routes/notifications/read-all";
@@ -152,6 +153,7 @@ export const routes = [
 	{ pattern: "/polls/:pollId/comments", module: r24 },
 	{ pattern: "/polls/:pollId/vote", module: r25 },
 	{ pattern: "/conversations/direct", module: r26 },
+	{ pattern: "/me/terms", module: rMeTerms },
 	{ pattern: "/reports/:reportId", module: rReport },
 	{ pattern: "/reports", module: rReports },
 	{ pattern: "/blocks/:userId", module: rBlock },
