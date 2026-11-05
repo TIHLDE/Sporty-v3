@@ -38,6 +38,9 @@ export function createAuth(env: AuthConfig, database: Database) {
             // offline_access gives a refresh token, so we can keep calling
             // Photon's API after the one-hour access token expires.
             scopes: ["openid", "profile", "email", "offline_access"],
+            // Photon registrerer klienten med client_secret_basic, så hemmeligheten
+            // må sendes i Authorization-headeren, ikke i skjemaet (invalid_client ellers).
+            authentication: "basic",
             tokenUrlParams: PHOTON_TOKEN_PARAMS,
             refreshTokenParams: PHOTON_TOKEN_PARAMS,
           },
