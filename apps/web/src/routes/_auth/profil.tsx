@@ -7,7 +7,12 @@ import { Button } from "@sporty/ui/components/button";
 import { cn } from "@sporty/ui/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { CalendarPlusIcon, ChevronRightIcon, LogOutIcon } from "lucide-react";
+import {
+	CalendarPlusIcon,
+	ChevronRightIcon,
+	LogOutIcon,
+	ShieldCheckIcon,
+} from "lucide-react";
 import { type ReactNode, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 
@@ -128,6 +133,7 @@ function ProfileComponent() {
 			<PushSection />
 			<CalendarSection />
 			<AppearanceSection />
+			<DevSection />
 			<BlockedSection />
 			<ReportsLink />
 			<Section title="Vilkår">
@@ -384,6 +390,53 @@ function AppearanceSection() {
 					</button>
 				))}
 			</div>
+		</Section>
+	);
+}
+
+/**
+ * (Kun utvikling) Gjør deg til admin i alle gruppene dine, for å teste admin-grensesnittet.
+ * Knappen finnes bare i utviklingsmodus, og endepunktet er sperret på serveren i produksjon.
+ */
+function DevSection() {
+	const queryClient = useQueryClient();
+	const [pending, setPending] = useState(false);
+	// Vite bytter ut DEV med false i bygget, så både knappen og koden bak forsvinner fra prod.
+	if (!import.meta.env.DEV) return null;
+
+	const makeAdmin = async () => {
+		setPending(true);
+		try {
+			const response = await fetch("/api/dev/admin", { method: "POST" });
+			const data = (await response.json().catch(() => null)) as {
+				groups?: number;
+				error?: string;
+			} | null;
+			if (!response.ok || !data)
+				throw new Error(data?.error ?? `Feilet (${response.status})`);
+			toast.success(`Du er nå admin i ${data.groups} grupper`);
+			await queryClient.invalidateQueries();
+		} catch (error) {
+			toast.error((error as Error).message);
+		} finally {
+			setPending(false);
+		}
+	};
+
+	return (
+		<Section
+			title="Utvikling"
+			description="Bare synlig mens appen kjøres i utviklingsmodus."
+		>
+			<Button
+				variant="outline"
+				className="justify-self-start"
+				disabled={pending}
+				onClick={() => void makeAdmin()}
+			>
+				<ShieldCheckIcon />
+				Gjør meg til admin i alle grupper
+			</Button>
 		</Section>
 	);
 }
