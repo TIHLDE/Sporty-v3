@@ -2,7 +2,7 @@ name: "build -> push -> deploy"
 
 # Deploy trigges av en release-tag, ikke av push til en branch.
 # Tag-format: <dato>.release-<n>, f.eks. 2026-08-08.release-1.
-# Lag taggen med: git tag 2026-08-08.release-1 && git push origin 2026-08-08.release-1
+# Bruk `bun run cut-release` (scripts/cut-release.ts) for å lage taggen.
 on:
   push:
     tags:
@@ -54,11 +54,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Publiser GitHub Release med generert changelog
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Publiser GitHub Release med changelog
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          bun scripts/release-notes.ts "${GITHUB_REF_NAME}" > release-notes.md
           gh release create "${GITHUB_REF_NAME}" \
               --title "${GITHUB_REF_NAME}" \
-              --generate-notes \
+              --notes-file release-notes.md \
               --verify-tag

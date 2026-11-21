@@ -42,7 +42,8 @@
 		"docker:dev:down": "bun run --cwd infra/docker dev:down",
 		"docker:fresh": "bun run --cwd infra/docker dev:fresh",
 		"docker:prod": "bun run --cwd infra/docker prod:up",
-		"docker:prod:down": "bun run --cwd infra/docker prod:down"
+		"docker:prod:down": "bun run --cwd infra/docker prod:down",
+		"cut-release": "bun scripts/cut-release.ts"
 	},
 	"dependencies": {
 		"zod": "catalog:"
