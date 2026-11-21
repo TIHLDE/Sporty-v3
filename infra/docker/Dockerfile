@@ -8,6 +8,9 @@ RUN --mount=type=secret,id=web_env,target=/app/.env --mount=type=cache,target=/r
 RUN DATABASE_URL=postgresql://placeholder:placeholder@localhost:5432/placeholder bun run --cwd packages/db db:generate
 
 ENV NODE_ENV=production
+
+
+ARG VITE_KLIPY_APP_KEY
 RUN --mount=type=secret,id=web_env,target=/app/.env cd apps/web && bun run build
 ENV DATABASE_URL=
 
