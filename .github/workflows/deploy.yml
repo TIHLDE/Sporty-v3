@@ -1,0 +1,64 @@
+name: "build -> push -> deploy"
+
+# Deploy trigges av en release-tag, ikke av push til en branch.
+# Tag-format: <dato>.release-<n>, f.eks. 2026-08-08.release-1.
+# Lag taggen med: git tag 2026-08-08.release-1 && git push origin 2026-08-08.release-1
+on:
+  push:
+    tags:
+      - "[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].release-*"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    permissions:
+      contents: read
+      packages: write
+    uses: TIHLDE/tihlde-workflows/.github/workflows/_ci_ghcr.yml@main
+    with:
+      context: .
+      dockerfile: ./infra/docker/Dockerfile
+      # Tagger imaget med release-taggen, så Drift kan bruke den som
+      # deploy-markør på containeren i tillegg til latest + sha.
+      extra_tags: type=ref,event=tag
+      # APP_VERSION og GIT_SHA bakes inn som ENV i imaget, så man kan se
+      # hvilken kode containeren kjører. `ref_name` er release-taggen både når
+      # taggen trigger kjøringen og ved rollback via workflow_dispatch --ref.
+      # VITE_KLIPY_APP_KEY er offentlig og bakes inn i klienten. Den settes som
+      # repo-variabel (Settings → Variables), ikke som secret.
+      build_args: |
+        APP_VERSION=${{ github.ref_name }}
+        GIT_SHA=${{ github.sha }}
+        VITE_KLIPY_APP_KEY=${{ vars.VITE_KLIPY_APP_KEY }}
+
+  deploy:
+    needs: build
+    uses: TIHLDE/tihlde-workflows/.github/workflows/_notify_deploy.yml@main
+    with:
+      deploy_url: "https://deploy-king.tihlde.org/deploy"
+    secrets:
+      DEPLOY_RECEIVER_TOKEN: ${{ secrets.DEPLOY_RECEIVER_TOKEN }}
+
+  release_notes:
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Publiser GitHub Release med generert changelog
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+              --title "${GITHUB_REF_NAME}" \
+              --generate-notes \
+              --verify-tag
